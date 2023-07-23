@@ -10,7 +10,7 @@ Nothing to see yet
 ```
 The MIT License (MIT)
 
-Copyright (c) 2022 George Watson
+Copyright (c) 2023 George Watson
 
 Permission is hereby granted, free of charge, to any person
 obtaining a copy of this software and associated documentation
