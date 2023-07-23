@@ -62,7 +62,4 @@ cimgui:
 app: shaders cimgui
 	$(CC) $(INCLUDE) $(EXTRA_CFLAGS) $(CFLAGS) -Lbuild/ -lcimgui_$(ARCH) tests/test.c $(SOURCE) -o $(EXE)
 
-tools:
-	cd tools && make
-
 .PHONY: all app shaders cimgui tools

@@ -16,6 +16,7 @@
 #include "cimgui.h"
 #include "sokol_imgui.h"
 #include "framebuffer.glsl.h"
+#include "sokol_time.h"
 
 #if defined(WEE_WINDOWS)
 #include <shlobj.h>
@@ -86,6 +87,37 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 #define DEFAULT_WINDOW_TITLE "WEE"
 #endif
 
+#define SAFE_FREE(X)    \
+    do                  \
+    {                   \
+        if ((X))        \
+        {               \
+            free((X));  \
+            (X) = NULL; \
+        }               \
+    } while (0)
+
+#if defined(DEBUG)
+#define ASSERT(X) \
+    do {                                                                                       \
+        if (!(X)) {                                                                            \
+            fprintf(stderr, "ERROR! Assertion hit! %s:%s:%d\n", __FILE__, __func__, __LINE__); \
+            assert(false);                                                                     \
+        }                                                                                      \
+    } while(0)
+#define ECS_ASSERT(X, Y, V)                                                                    \
+    do {                                                                                       \
+        if (!(X)) {                                                                            \
+            fprintf(stderr, "ERROR! Assertion hit! %s:%s:%d\n", __FILE__, __func__, __LINE__); \
+            Dump##Y(V);                                                                        \
+            assert(false);                                                                     \
+        }                                                                                      \
+    } while(0)
+#else
+#define ECS_ASSERT(X, _, __) assert(X)
+#define ASSERT(X) assert(X)
+#endif
+
 // MARK: Math functions
 
 #define X(N)                                               \
@@ -146,6 +178,21 @@ X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, 
 
 // MARK: Global state
 
+typedef struct {
+    Entity *sparse;
+    Entity *dense;
+    size_t sizeOfSparse;
+    size_t sizeOfDense;
+} EcsSparse;
+
+typedef struct {
+    Entity componentId;
+    void *data;
+    size_t sizeOfData;
+    size_t sizeOfComponent;
+    EcsSparse *sparse;
+} EcsStorage;
+
 static struct {
 #define X(NAME, ARGS) void(*NAME##Callback)ARGS;
     WEE_CALLBACKS
@@ -157,18 +204,30 @@ static struct {
     bool mouseLocked;
     sapp_desc desc;
     
-    bool button_down[SAPP_MAX_KEYCODES];
-    bool button_clicked[SAPP_MAX_KEYCODES];
-    bool mouse_down[SAPP_MAX_MOUSEBUTTONS];
-    bool mouse_clicked[SAPP_MAX_MOUSEBUTTONS];
-    vec2 mouse_pos, last_mouse_pos;
-    vec2 mouse_scroll_delta, mouse_delta;
+    struct {
+        bool button_down[SAPP_MAX_KEYCODES];
+        bool button_clicked[SAPP_MAX_KEYCODES];
+        bool mouse_down[SAPP_MAX_MOUSEBUTTONS];
+        bool mouse_clicked[SAPP_MAX_MOUSEBUTTONS];
+        vec2 mouse_pos, last_mouse_pos;
+        vec2 mouse_scroll_delta, mouse_delta;
+    } input;
     
     sg_pass_action pass_action;
     sg_pass pass;
     sg_pipeline pip;
     sg_bindings bind;
     sg_image color, depth;
+    
+    struct {
+        EcsStorage **storages;
+        size_t sizeOfStorages;
+        Entity *entities;
+        size_t sizeOfEntities;
+        uint32_t *recyclable;
+        size_t sizeOfRecyclable;
+        uint32_t nextAvailableId;
+    } ecs;
 } state = {
 #define X(NAME, ARGS) .NAME##Callback = NULL,
     WEE_CALLBACKS
@@ -529,13 +588,13 @@ static void SokolFrameCallback(void) {
     sg_end_pass();
     sg_commit();
     
-    state.mouse_delta = state.mouse_scroll_delta = Vec2Zero();
+    state.input.mouse_delta = state.input.mouse_scroll_delta = Vec2Zero();
     for (int i = 0; i < SAPP_MAX_KEYCODES; i++)
-        if (state.button_clicked[i])
-            state.button_clicked[i] = false;
+        if (state.input.button_clicked[i])
+            state.input.button_clicked[i] = false;
     for (int i = 0; i < SAPP_MAX_MOUSEBUTTONS; i++)
-        if (state.mouse_clicked[i])
-            state.mouse_clicked[i] = false;
+        if (state.input.mouse_clicked[i])
+            state.input.mouse_clicked[i] = false;
 }
 
 static void SokolEventCallback(const sapp_event* e) {
@@ -546,26 +605,26 @@ static void SokolEventCallback(const sapp_event* e) {
             if (e->modifiers & SAPP_MODIFIER_SUPER && e->key_code == SAPP_KEYCODE_W)
                 sapp_quit();
 #endif
-            state.button_down[e->key_code] = true;
+            state.input.button_down[e->key_code] = true;
             break;
         case SAPP_EVENTTYPE_KEY_UP:
-            state.button_down[e->key_code] = false;
-            state.button_clicked[e->key_code] = true;
+            state.input.button_down[e->key_code] = false;
+            state.input.button_clicked[e->key_code] = true;
             break;
         case SAPP_EVENTTYPE_MOUSE_DOWN:
-            state.mouse_down[e->mouse_button] = true;
+            state.input.mouse_down[e->mouse_button] = true;
             break;
         case SAPP_EVENTTYPE_MOUSE_UP:
-            state.mouse_down[e->mouse_button] = false;
-            state.mouse_clicked[e->mouse_button] = true;
+            state.input.mouse_down[e->mouse_button] = false;
+            state.input.mouse_clicked[e->mouse_button] = true;
             break;
         case SAPP_EVENTTYPE_MOUSE_MOVE:
-            state.last_mouse_pos = state.mouse_pos;
-            state.mouse_pos = (vec2){e->mouse_x, e->mouse_y};
-            state.mouse_delta = (vec2){e->mouse_dx, e->mouse_dy};
+            state.input.last_mouse_pos = state.input.mouse_pos;
+            state.input.mouse_pos = (vec2){e->mouse_x, e->mouse_y};
+            state.input.mouse_delta = (vec2){e->mouse_dx, e->mouse_dy};
             break;
         case SAPP_EVENTTYPE_MOUSE_SCROLL:
-            state.mouse_scroll_delta = (vec2){e->scroll_x, e->scroll_y};
+            state.input.mouse_scroll_delta = (vec2){e->scroll_x, e->scroll_y};
             break;
         case SAPP_EVENTTYPE_RESIZED:
             state.desc.width = e->window_width;
@@ -588,9 +647,20 @@ static void SokolCleanupCallback(void) {
     sg_shutdown();
 }
 
+static void UpdateTimer(Query *query) {
+    Timer *timer = ECS_FIELD(query, Timer, 0);
+    if (!timer->enabled)
+        return;
+    if (stm_ms(stm_since(timer->start)) > timer->interval) {
+//        timer->cb(timer->userdata);
+        timer->start = stm_now();
+    }
+}
+
 int weeInit(int argc, const char *argv[]) {
     assert(!state.running); // TODO: Report error
     
+#if defined(WEE_ENABLE_CONFIG)
     state.configPath = ConfigPath();
     if (FileExists(state.configPath)) {
         if (!LoadConfig(state.configPath)) {
@@ -606,16 +676,27 @@ EXPORT_CONFIG:
             return EXIT_FAILURE;
         }
     }
+#endif
+#if defined(WEE_ENABLE_ARGUMENTS)
     if (argc > 1)
         if (!ParseArguments(argc, argv)) {
             fprintf(stderr, "[PARSE ARGUMENTS ERROR] Failed to parse arguments\n");
             return EXIT_FAILURE;
         }
+#endif
     
     state.desc.init_cb = SokolInitCallback;
     state.desc.frame_cb = SokolFrameCallback;
     state.desc.event_cb = SokolEventCallback;
     state.desc.cleanup_cb = SokolCleanupCallback;
+    
+    state.ecs.nextAvailableId = EcsNil;
+    EcsSystem   = ECS_COMPONENT(System);
+    EcsPrefab   = ECS_COMPONENT(Prefab);
+    EcsRelation = ECS_COMPONENT(Relation);
+    EcsChildOf  = ECS_TAG(result);
+    EcsTimer    = ECS_COMPONENT(Timer);
+    ECS_SYSTEM(UpdateTimer, EcsTimer);
     
     sapp_run(&state.desc);
     return 0;
@@ -624,27 +705,27 @@ EXPORT_CONFIG:
 // MARK: Event functions
 
 bool IsKeyDown(weeKey key) {
-    return state.button_down[key];
+    return state.input.button_down[key];
 }
 
 bool IsKeyUp(weeKey key) {
-    return !state.button_down[key];
+    return !state.input.button_down[key];
 }
 
 bool WasKeyClicked(weeKey key) {
-    return state.button_clicked[key];
+    return state.input.button_clicked[key];
 }
 
 bool IsButtonDown(weeButton button) {
-    return state.mouse_down[button];
+    return state.input.mouse_down[button];
 }
 
 bool IsButtonUp(weeButton button) {
-    return !state.mouse_down[button];
+    return !state.input.mouse_down[button];
 }
 
 bool WasButtonPressed(weeButton button) {
-    return state.mouse_clicked[button];
+    return state.input.mouse_clicked[button];
 }
 
 // MARK: Window management functions
@@ -686,4 +767,481 @@ void weeToggleCursorLock(void) {
     if (state.running)
         sapp_lock_mouse(!state.mouseLocked);
     state.mouseLocked = !state.mouseLocked;
+}
+
+// MARK: ECS Function
+
+#if defined(DEBUG)
+static void DumpEntity(Entity e) {
+    printf("(%llx: %d, %d, %d)\n", e.id, e.parts.id, e.parts.version, e.parts.flag);
+}
+
+static void DumpSparse(EcsSparse *sparse) {
+    printf("*** DUMP SPARSE ***\n");
+    printf("sizeOfSparse: %zu, sizeOfDense: %zu\n", sparse->sizeOfSparse, sparse->sizeOfDense);
+    printf("Sparse Contents:\n");
+    for (int i = 0; i < sparse->sizeOfSparse; i++)
+        DumpEntity(sparse->sparse[i]);
+    printf("Dense Contents:\n");
+    for (int i = 0; i < sparse->sizeOfDense; i++)
+        DumpEntity(sparse->dense[i]);
+    printf("*** END SPARSE DUMP ***\n");
+}
+
+static void DumpStorage(EcsStorage *storage) {
+    printf("*** DUMP STORAGE ***\n");
+    printf("componentId: %u, sizeOfData: %zu, sizeOfComponent: %zu\n",
+           storage->componentId.parts.id, storage->sizeOfData, storage->sizeOfComponent);
+    DumpSparse(storage->sparse);
+    printf("*** END STORAGE DUMP ***\n");
+}
+#else
+static void DumpEntity(Entity e) {}
+static void DumpSparse(EcsSparse *sparse) {}
+static void DumpStorage(EcsStorage *storage) {}
+#endif
+
+#define ECS_COMPOSE_ENTITY(ID, VER, TAG) \
+    (Entity)                             \
+    {                                    \
+        .parts = {                       \
+            .id = ID,                    \
+            .version = VER,              \
+            .flag = TAG                  \
+        }                                \
+    }
+
+Entity EcsSystem   = EcsNilEntity;
+Entity EcsPrefab   = EcsNilEntity;
+Entity EcsRelation = EcsNilEntity;
+Entity EcsChildOf  = EcsNilEntity;
+Entity EcsTimer    = EcsNilEntity;
+
+static EcsSparse* NewSparse(void) {
+    EcsSparse *result = malloc(sizeof(EcsSparse));
+    *result = (EcsSparse){0};
+    return result;
+}
+
+static bool SparseHas(EcsSparse *sparse, Entity e) {
+    ASSERT(sparse);
+    uint32_t id = ENTITY_ID(e);
+    ASSERT(id != EcsNil);
+    return (id < sparse->sizeOfSparse) && (ENTITY_ID(sparse->sparse[id]) != EcsNil);
+}
+
+static void SparseEmplace(EcsSparse *sparse, Entity e) {
+    ASSERT(sparse);
+    uint32_t id = ENTITY_ID(e);
+    ASSERT(id != EcsNil);
+    if (id >= sparse->sizeOfSparse) {
+        const size_t newSize = id + 1;
+        sparse->sparse = realloc(sparse->sparse, newSize * sizeof * sparse->sparse);
+        for (size_t i = sparse->sizeOfSparse; i < newSize; i++)
+            sparse->sparse[i] = EcsNilEntity;
+        sparse->sizeOfSparse = newSize;
+    }
+    sparse->sparse[id] = (Entity) { .parts = { .id = (uint32_t)sparse->sizeOfDense } };
+    sparse->dense = realloc(sparse->dense, (sparse->sizeOfDense + 1) * sizeof * sparse->dense);
+    sparse->dense[sparse->sizeOfDense++] = e;
+}
+
+static size_t SparseRemove(EcsSparse *sparse, Entity e) {
+    ASSERT(sparse);
+    ECS_ASSERT(SparseHas(sparse, e), Sparse, sparse);
+    
+    const uint32_t id = ENTITY_ID(e);
+    uint32_t pos = ENTITY_ID(sparse->sparse[id]);
+    Entity other = sparse->dense[sparse->sizeOfDense-1];
+    
+    sparse->sparse[ENTITY_ID(other)] = (Entity) { .parts = { .id = pos } };
+    sparse->dense[pos] = other;
+    sparse->sparse[id] = EcsNilEntity;
+    sparse->dense = realloc(sparse->dense, --sparse->sizeOfDense * sizeof * sparse->dense);
+    
+    return pos;
+}
+
+static size_t SparseAt(EcsSparse *sparse, Entity e) {
+    ASSERT(sparse);
+    uint32_t id = ENTITY_ID(e);
+    ASSERT(id != EcsNil);
+    return ENTITY_ID(sparse->sparse[id]);
+}
+
+static EcsStorage* NewStorage(Entity id, size_t sz) {
+    EcsStorage *result = malloc(sizeof(EcsStorage));
+    *result = (EcsStorage) {
+        .componentId = id,
+        .sizeOfComponent = sz,
+        .sizeOfData = 0,
+        .data = NULL,
+        .sparse = NewSparse()
+    };
+    return result;
+}
+
+static bool StorageHas(EcsStorage *storage, Entity e) {
+    ASSERT(storage);
+    ASSERT(!ENTITY_IS_NIL(e));
+    return SparseHas(storage->sparse, e);
+}
+
+static void* StorageEmplace(EcsStorage *storage, Entity e) {
+    ASSERT(storage);
+    storage->data = realloc(storage->data, (storage->sizeOfData + 1) * sizeof(char) * storage->sizeOfComponent);
+    storage->sizeOfData++;
+    void *result = &((char*)storage->data)[(storage->sizeOfData - 1) * sizeof(char) * storage->sizeOfComponent];
+    SparseEmplace(storage->sparse, e);
+    return result;
+}
+
+static void StorageRemove(EcsStorage *storage, Entity e) {
+    ASSERT(storage);
+    size_t pos = SparseRemove(storage->sparse, e);
+    memmove(&((char*)storage->data)[pos * sizeof(char) * storage->sizeOfComponent],
+            &((char*)storage->data)[(storage->sizeOfData - 1) * sizeof(char) * storage->sizeOfComponent],
+            storage->sizeOfComponent);
+    storage->data = realloc(storage->data, --storage->sizeOfData * sizeof(char) * storage->sizeOfComponent);
+}
+
+static void* StorageAt(EcsStorage *storage, size_t pos) {
+    ASSERT(storage);
+    ECS_ASSERT(pos < storage->sizeOfData, Storage, storage);
+    return &((char*)storage->data)[pos * sizeof(char) * storage->sizeOfComponent];
+}
+
+static void* StorageGet(EcsStorage *storage, Entity e) {
+    ASSERT(storage);
+    ASSERT(!ENTITY_IS_NIL(e));
+    return StorageAt(storage, SparseAt(storage->sparse, e));
+}
+
+bool EcsIsValid(Entity e) {
+        uint32_t id = ENTITY_ID(e);
+    return id < state.ecs.sizeOfEntities && ENTITY_CMP(state.ecs.entities[id], e);
+}
+
+static Entity EcsNewEntityType(uint8_t type) {
+        if (state.ecs.sizeOfRecyclable) {
+        uint32_t idx = state.ecs.recyclable[state.ecs.sizeOfRecyclable-1];
+        Entity e = state.ecs.entities[idx];
+        Entity new = ECS_COMPOSE_ENTITY(ENTITY_ID(e), ENTITY_VERSION(e), type);
+        state.ecs.entities[idx] = new;
+        state.ecs.recyclable = realloc(state.ecs.recyclable, --state.ecs.sizeOfRecyclable * sizeof(uint32_t));
+        return new;
+    } else {
+        state.ecs.entities = realloc(state.ecs.entities, ++state.ecs.sizeOfEntities * sizeof(Entity));
+        Entity e = ECS_COMPOSE_ENTITY((uint32_t)state.ecs.sizeOfEntities-1, 0, type);
+        state.ecs.entities[state.ecs.sizeOfEntities-1] = e;
+        return e;
+    }
+}
+
+Entity EcsNewEntity(void) {
+    return EcsNewEntityType(EcsEntityType);
+}
+
+static EcsStorage* EcsFind(Entity e) {
+    for (int i = 0; i < state.ecs.sizeOfStorages; i++)
+        if (ENTITY_ID(state.ecs.storages[i]->componentId) == ENTITY_ID(e))
+            return state.ecs.storages[i];
+    return NULL;
+}
+
+static EcsStorage* EcsAssure(Entity componentId, size_t sizeOfComponent) {
+    EcsStorage *found = EcsFind(componentId);
+    if (found)
+        return found;
+    EcsStorage *new = NewStorage(componentId, sizeOfComponent);
+    state.ecs.storages = realloc(state.ecs.storages, (state.ecs.sizeOfStorages + 1) * sizeof * state.ecs.storages);
+    state.ecs.storages[state.ecs.sizeOfStorages++] = new;
+    return new;
+}
+
+bool EcsHas(Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(component), Entity, component);
+    return StorageHas(EcsFind(component), entity);
+}
+
+Entity EcsNewComponent(size_t sizeOfComponent) {
+    Entity e = EcsNewEntityType(EcsComponentType);
+    return EcsAssure(e, sizeOfComponent) ? e : EcsNilEntity;
+}
+
+Entity EcsNewSystem(SystemCb fn, size_t sizeOfComponents, ...) {
+    Entity e = EcsNewEntityType(EcsSystemType);
+    EcsAttach(e, EcsSystem);
+    System *c = EcsGet(e, EcsSystem);
+    c->callback = fn;
+    c->sizeOfComponents = sizeOfComponents;
+    c->components = malloc(sizeof(Entity) * sizeOfComponents);
+    c->enabled = true;
+    
+    va_list args;
+    va_start(args, sizeOfComponents);
+    for (int i = 0; i < sizeOfComponents; i++)
+        c->components[i] = va_arg(args, Entity);
+    va_end(args);
+    return e;
+}
+
+Entity EcsNewPrefab(size_t sizeOfComponents, ...) {
+    Entity e = EcsNewEntityType(EcsPrefabType);
+    EcsAttach(e, EcsPrefab);
+    Prefab *c = EcsGet(e, EcsPrefab);
+    c->sizeOfComponents = sizeOfComponents;
+    c->components = malloc(sizeof(Entity) * sizeOfComponents);
+    
+    va_list args;
+    va_start(args, sizeOfComponents);
+    for (int i = 0; i < sizeOfComponents; i++)
+        c->components[i] = va_arg(args, Entity);
+    va_end(args);
+    return e;
+}
+
+Entity EcsNewTimer(int interval, bool enable, TimerCb cb, void *userdata) {
+    Entity e = EcsNewEntityType(EcsTimerType);
+    EcsAttach(e, EcsTimer);
+    Timer *timer = EcsGet(e, EcsTimer);
+    timer->start = stm_now();
+    timer->enabled = enable;
+    timer->interval = MAX(interval, 1);
+    timer->cb = cb;
+    timer->userdata = userdata;
+    return e;
+}
+#define DEL_TYPES \
+    X(System, 0)  \
+    X(Prefab, 1)
+
+void DestroyEntity(Entity e) {
+        ECS_ASSERT(EcsIsValid(e), Entity, e);
+    switch (e.parts.flag) {
+#define X(TYPE, _)                                 \
+        case Ecs##TYPE##Type: {                    \
+            TYPE *s = EcsGet(e, Ecs##TYPE); \
+            if (s && s->components)                \
+                free(s->components);               \
+            break;                                 \
+        }
+        DEL_TYPES
+#undef X
+    }
+    for (size_t i = state.ecs.sizeOfStorages; i; --i)
+        if (state.ecs.storages[i - 1] && SparseHas(state.ecs.storages[i - 1]->sparse, e))
+            StorageRemove(state.ecs.storages[i - 1], e);
+    uint32_t id = ENTITY_ID(e);
+    state.ecs.entities[id] = ECS_COMPOSE_ENTITY(id, ENTITY_VERSION(e) + 1, 0);
+    state.ecs.recyclable = realloc(state.ecs.recyclable, ++state.ecs.sizeOfRecyclable * sizeof(uint32_t));
+    state.ecs.recyclable[state.ecs.sizeOfRecyclable-1] = id;
+}
+
+void EcsAttach(Entity entity, Entity component) {
+    switch (component.parts.flag) {
+        case EcsRelationType: // Use EcsRelation()
+        case EcsSystemType: // NOTE: potentially could be used for some sort of event system
+        case EcsTimerType:
+            ASSERT(false);
+        case EcsPrefabType: {
+            Prefab *c = EcsGet(component, EcsPrefab);
+            for (int i = 0; i < c->sizeOfComponents; i++) {
+                if (ENTITY_IS_NIL(c->components[i]))
+                    break;
+                EcsAttach(entity, c->components[i]);
+            }
+            break;
+        }
+        case EcsComponentType:
+        default: {
+            ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+            ECS_ASSERT(EcsIsValid(component), Entity, component);
+            EcsStorage *storage = EcsFind(component);
+            ASSERT(storage);
+            StorageEmplace(storage, entity);
+            break;
+        }
+    }
+}
+
+void EcsAssociate(Entity entity, Entity object, Entity relation) {
+        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(object), Entity, object);
+    ECS_ASSERT(ENTITY_ISA(object, Component), Entity, object);
+    ECS_ASSERT(EcsIsValid(relation), Entity, relation);
+    ECS_ASSERT(ENTITY_ISA(relation, Entity), Entity, relation);
+    EcsAttach(entity, EcsRelation);
+    Relation *pair = EcsGet(entity, EcsRelation);
+    pair->object = object;
+    pair->relation = relation;
+}
+
+void EcsDetach(Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(component), Entity, component);
+    EcsStorage *storage = EcsFind(component);
+    ASSERT(storage);
+    ECS_ASSERT(StorageHas(storage, entity), Storage, storage);
+    StorageRemove(storage, entity);
+}
+
+void EcsDisassociate(Entity entity) {
+    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsHas(entity, EcsRelation), Entity, entity);
+    EcsDetach(entity, EcsRelation);
+}
+
+bool EcsHasRelation(Entity entity, Entity object) {
+    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(object), Entity, object);
+    EcsStorage *storage = EcsFind(EcsRelation);
+    if (!storage)
+        return false;
+    Relation *relation = StorageGet(storage, entity);
+    if (!relation)
+        return false;
+    return ENTITY_CMP(relation->object, object);
+}
+
+bool EcsRelated(Entity entity, Entity relation) {
+    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(relation), Entity, relation);
+    EcsStorage *storage = EcsFind(EcsRelation);
+    if (!storage)
+        return false;
+    Relation *_relation = StorageGet(storage, entity);
+    if (!_relation)
+        return false;
+    return ENTITY_CMP(_relation->relation, relation);
+}
+
+void* EcsGet(Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(component), Entity, component);
+    EcsStorage *storage = EcsFind(component);
+    ASSERT(storage);
+    return StorageHas(storage, entity) ? StorageGet(storage, entity) : NULL;
+}
+
+void EcsSet(Entity entity, Entity component, const void *data) {
+        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(component), Entity, component);
+    EcsStorage *storage = EcsFind(component);
+    ASSERT(storage);
+    
+    void *componentData = StorageHas(storage, entity) ?
+                                    StorageGet(storage, entity) :
+                                    StorageEmplace(storage, entity);
+    ASSERT(componentData);
+    memcpy(componentData, data, storage->sizeOfComponent);
+}
+
+static void DestroyQuery(Query *query) {
+    SAFE_FREE(query->componentIndex);
+    SAFE_FREE(query->componentData);
+}
+
+void EcsRelations(Entity parent, Entity relation, void *userdata, SystemCb cb) {
+    EcsStorage *pairs = EcsFind(EcsRelation);
+    for (size_t i = 0; i < state.ecs.sizeOfEntities; i++) {
+        Entity e = state.ecs.entities[i];
+        if (!StorageHas(pairs, e))
+            continue;
+        Relation *pair = StorageGet(pairs, e);
+        if (!ENTITY_CMP(pair->object, relation) || !ENTITY_CMP(pair->relation, parent))
+            continue;
+        Query query = {
+            .entity = e,
+            .componentData = malloc(sizeof(void*)),
+            .componentIndex = malloc(sizeof(Entity)),
+            .sizeOfComponentData = 1,
+            .userdata = userdata
+        };
+        query.componentIndex[0] = relation;
+        query.componentData[0] = (void*)pair;
+        cb(&query);
+        DestroyQuery(&query);
+    }
+}
+
+void EcsEnableSystem(Entity system) {
+    ECS_ASSERT(EcsIsValid(system), Entity, system);
+    ECS_ASSERT(ENTITY_ISA(system, System), Entity, system);
+    System *s = EcsGet(system, EcsSystem);
+    s->enabled = true;
+}
+
+void EcsDisableSystem(Entity system) {
+    ECS_ASSERT(EcsIsValid(system), Entity, system);
+    ECS_ASSERT(ENTITY_ISA(system, System), Entity, system);
+    System *s = EcsGet(system, EcsSystem);
+    s->enabled = false;
+}
+
+void EcsEnableTimer(Entity timer) {
+    ECS_ASSERT(EcsIsValid(timer), Entity, timer);
+    ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
+    Timer *t = EcsGet(timer, EcsTimer);
+    t->enabled = true;
+    t->start = stm_now();
+}
+
+void EcsDisableTimer(Entity timer) {
+    ECS_ASSERT(EcsIsValid(timer), Entity, timer);
+    ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
+    Timer *t = EcsGet(timer, EcsTimer);
+    t->enabled = false;
+}
+
+void EcsRunSystem(Entity e) {
+    ECS_ASSERT(EcsIsValid(e), Entity, e);
+    ECS_ASSERT(ENTITY_ISA(e, System), Entity, e);
+    System *system = EcsGet(e, EcsSystem);
+    EcsQuery(system->callback, NULL, system->components, system->sizeOfComponents);
+}
+
+void EcsStep(void) {
+    EcsStorage *storage = state.ecs.storages[ENTITY_ID(EcsSystem)];
+    for (int i = 0; i < storage->sparse->sizeOfDense; i++) {
+        System *system = StorageGet(storage, storage->sparse->dense[i]);
+        if (system->enabled)
+            EcsQuery(system->callback, NULL, system->components, system->sizeOfComponents);
+    }
+}
+
+void EcsQuery(SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents) {
+    for (size_t e = 0; e < state.ecs.sizeOfEntities; e++) {
+        bool hasComponents = true;
+        Query query = {
+            .componentData = NULL,
+            .componentIndex = NULL,
+            .sizeOfComponentData = 0,
+            .entity = state.ecs.entities[e],
+            .userdata = userdata
+        };
+        
+        for (size_t i = 0; i < sizeOfComponents; i++) {
+            EcsStorage *storage = EcsFind(components[i]);
+            if (!StorageHas(storage, state.ecs.entities[e])) {
+                hasComponents = false;
+                break;
+            }
+            
+            query.sizeOfComponentData++;
+            query.componentData = realloc(query.componentData, query.sizeOfComponentData * sizeof(void*));
+            query.componentIndex = realloc(query.componentIndex, query.sizeOfComponentData * sizeof(Entity));
+            query.componentIndex[query.sizeOfComponentData-1] = components[i];
+            query.componentData[query.sizeOfComponentData-1] = StorageGet(storage, state.ecs.entities[e]);
+        }
+        
+        if (hasComponents)
+            cb(&query);
+        DestroyQuery(&query);
+    }
+}
+
+void* EcsQueryField(Query *query, size_t index) {
+    return index >= query->sizeOfComponentData || ENTITY_IS_NIL(query->componentIndex[index]) ? NULL : query->componentData[index];
 }
