@@ -1,0 +1,75 @@
+name: wee
+
+options:
+  bundleIdPrefix: io.github.takeiteasy
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "12.0"
+
+settings:
+  CLANG_CXX_LANGUAGE_STANDARD: c++11
+  CLANG_CXX_LIBRARY: libc++
+  GCC_C_LANGUAGE_STANDARD: c11
+  CLANG_WARN_DOCUMENTATION_COMMENTS: false
+
+targets:
+  cimgui:
+    type: library.dynamic
+    platform: macOS
+    sources:
+        - path: deps/cimgui
+          includes:
+            - "cimgui.*"
+          excludes:
+            - "test/"
+            - "imgui/"
+            - "generator/"
+            - "backend_test/"
+            - ".github"
+        - path: deps/cimgui/imgui
+          excludes:
+            - "examples/"
+            - "misc/freetype/"
+          includes:
+            - "*.cpp"
+            - "backends/imgui_impl_metal.mm"
+    dependencies:
+        - sdk: Metal.framework
+        - sdk: Quartz.framework
+    settings:
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/deps/cimgui, $(PROJECT_DIR)/deps/cimgui/imgui]
+        OTHER_CFLAGS: ["-x objective-c++", -fobjc-arc]
+  wee:
+    type: library.dynamic
+    platform: macOS
+    sources:
+        - path: assets/
+          type: folder
+        - path: deps/
+          type: folder
+        - path: tools/
+          type: folder
+        - path: build/
+          type: folder
+        - path: src/
+    dependencies:
+        - sdk: Cocoa.framework
+        - sdk: Metal.framework
+        - sdk: MetalKit.framework
+        - sdk: Quartz.framework
+        - sdk: AudioToolbox.framework
+        - target: cimgui
+    settings:
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/imgui, $(PROJECT_DIR)/build]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc -DWEE_ENABLE_ARGUMENTS, -DWEE_ENABLE_CONFIG]
+  weetest:
+    type: application
+    platform: macOS
+    info:
+      path: Info.plist
+    sources:
+        - path: tests/
+    dependencies:
+        - target: wee
+    settings:
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps]
