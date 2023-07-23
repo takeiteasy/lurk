@@ -62,7 +62,7 @@ targets:
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/imgui, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc -DWEE_ENABLE_ARGUMENTS, -DWEE_ENABLE_CONFIG]
-  weetest:
+  test:
     type: application
     platform: macOS
     info:

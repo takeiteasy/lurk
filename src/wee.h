@@ -378,12 +378,6 @@ typedef union {
 #define EcsNil 0xFFFFFFFFull
 #define EcsNilEntity (Entity){.id = EcsNil}
 
-typedef struct {
-    Entity componentId;
-    size_t sizeOfComponent;
-    const char *name;
-} Component;
-
 #define ECS_COMPONENT(T) EcsNewComponent(sizeof(T))
 #define ECS_TAG(WORLD) EcsNewComponent(0)
 #define ECS_QUERY(CB, UD, ...) EcsQuery(CB, UD, (Entity[]){__VA_ARGS__}, sizeof((Entity[]){__VA_ARGS__}) / sizeof(Entity));
