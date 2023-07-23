@@ -126,6 +126,11 @@ extern "C" {
 #define _RSEQ() 127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
 
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stddef.h>
 #if defined(_MSC_VER) && _MSC_VER < 1800
 #include <windef.h>
 #define bool BOOL
@@ -138,16 +143,14 @@ typedef enum bool { false = 0, true = !false } bool;
 #include <stdbool.h>
 #endif
 #endif
+#include <stdarg.h>
+#include <string.h>
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <float.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <setjmp.h>
+#include <errno.h>
 #include <assert.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 
 // MARK: Math types
 
@@ -469,6 +472,343 @@ EXPORT extern Entity EcsPrefab;
 EXPORT extern Entity EcsRelation;
 EXPORT extern Entity EcsChildOf;
 EXPORT extern Entity EcsTimer;
+
+// MARK: Image functions
+
+/*!
+ * @function RGBA
+ * @abstract Create a packed RGBA integer
+ * @param r R channel
+ * @param g G channel
+ * @param b B channel
+ * @param a A channel
+ * @return Packed RGBA integer
+ */
+int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+/*!
+ * @function RGB
+ * @abstract Convert RGB to packed integer
+ * @param r R channel
+ * @param g G channel
+ * @param b B channel
+ * @return Packed RGB integer
+ * @discussion Alpha is 255 by default
+ */
+int RGB(unsigned char r, unsigned char g, unsigned char b);
+/*!
+ * @function RGBA1
+ * @abstract Create a packed RGBA integer from one channel
+ * @param c R,G + B channels
+ * @param a A channel
+ * @return Packed RGBA integer
+ * @discussion This is a convenience wrapper for RGBA, e.g. RGBA(100, 100, 100, 255) == RGBA1(100, 255)
+ */
+int RGBA1(unsigned char c, unsigned char a);
+/*!
+ * @function RGB1
+ * @abstract Create a packed RGBA integer from one channel
+ * @param c R, G + B channels
+ * @return Packed RGBA integer
+ * @discussion This is a convenience wrapper for RGB, e.g. RGB(100, 100, 100) == RGB1(100)
+ */
+int RGB1(unsigned char c);
+/*!
+ * @function Rgba
+ * @abstract Retrieve R channel from packed RGBA integer
+ * @param c Packed RGBA integer
+ * @return R channel value
+ */
+unsigned char Rgba(int c);
+/*!
+ * @function rGba
+ * @abstract Retrieve G channel from packed RGBA integer
+ * @param c Packed RGBA integer
+ * @return G channel value
+ */
+unsigned char rGba(int c);
+/*!
+ * @function rgBa
+ * @abstract Retrieve B channel from packed RGBA integer
+ * @param c Packed RGBA integer
+ * @return B channel value
+ */
+unsigned char rgBa(int c);
+/*!
+ * @function rgbA
+ * @abstract Retrieve A channel from packed RGBA integer
+ * @param c Packed RGBA integer
+ * @return A channel value
+ */
+unsigned char rgbA(int c);
+/*!
+ * @function rGBA
+ * @abstract Modify R channel of packed RGBA integer
+ * @param c Packed RGBA integer
+ * @param r New R channel value
+ * @return Modified packed RGBA integer
+ */
+int rGBA(int c, unsigned char r);
+/*!
+ * @function RgBA
+ * @abstract Modify G channel of packed RGBA integer
+ * @param c Packed RGBA integer
+ * @param g New G channel
+ * @return Modified packed RGBA integer
+ */
+int RgBA(int c, unsigned char g);
+/*!
+ * @function RGbA
+ * @abstract Modify B channel of packed RGBA integer
+ * @param c Packed RGBA integer
+ * @param b New B channel
+ * @return Modified packed RGBA integer
+ */
+int RGbA(int c, unsigned char b);
+/*!
+ * @function RGBa
+ * @abstract Modify A channel of packed RGBA integer
+ * @param c Packed RGBA integer
+ * @param a New A channel
+ * @return Modified packed RGBA integer
+ */
+int RGBa(int c, unsigned char a);
+
+/*!
+ * @struct Image
+ * @abstract Image object to hold image data
+ * @field buf Pixel data
+ * @field w Width of image
+ * @field h Height of image
+ */
+typedef struct {
+    int *buf, w, h;
+} Image;
+
+/*!
+ * @function InitImage
+ * @abstract Create a new image object
+ * @param b Pointer to image object to create
+ * @param w Width of new image
+ * @param h Height of new image
+ * @return Boolean for success/failure
+ */
+bool InitImage(Image *img, unsigned int w, unsigned int h);
+/*!
+ * @function DestroyImage
+ * @abstract Free allocated image data
+ * @param b Reference to image object
+ */
+void DestroyImage(Image *img);
+
+/*!
+ * @function FillImage
+ * @abstract Fill a image with a given color
+ * @param img Image object
+ * @param col Color
+ */
+void FillImage(Image *img, int col);
+/*!
+ * @function FloodImage
+ * @abstract Flood fill on image object
+ * @param img Image object
+ * @param x X start position
+ * @param y Y start position
+ * @param col Color
+ */
+void FloodImage(Image *img, int x, int y, int col);
+/*!
+ * @function ClearImage
+ * @abstract Clear a image
+ * @param img Image object
+ * @discussion Basically the same as calling FillImage(&image, Black)
+ */
+void ClearImage(Image *img);
+/*!
+ * @function BSet
+ * @abstract Set and blend colors
+ * @param img Image object
+ * @param x X position
+ * @param y Y position
+ * @param col Color to set
+ */
+void BSet(Image *img, int x, int y, int col);
+/*!
+ * @function PSet
+ * @abstract Set image pixel color (without blending)
+ * @param img Image object
+ * @param x X position
+ * @param y Y position
+ * @param col Color to set
+ */
+void PSet(Image *img, int x, int y, int col);
+/*!
+ * @function PGet
+ * @abstract Get image pixel color at position
+ * @param img Image object
+ * @param x X position
+ * @param y Y position
+ * @return Pixel color
+ */
+int PGet(Image *img, int x, int y);
+/*!
+ * @function PasteImage
+ * @abstract Blit one image onto another at point
+ * @param dst Image to blit to
+ * @param src Image to blit
+ * @param x X position
+ * @param y Y position
+ * @return Boolean of success/failure
+ */
+bool PasteImage(Image *dst, Image *src, int x, int y);
+/*!
+ * @function PasteImageClip
+ * @abstract Blit one image onto another at point with clipping rect
+ * @param dst Image to blit to
+ * @param src Image to blit
+ * @param x X position
+ * @param y Y position
+ * @param rx Clip rect X
+ * @param ry Clip rect Y
+ * @param rw Clip rect width
+ * @param rh Clip rect height
+ * @return Boolean of success/failure
+ */
+bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
+/*!
+ * @function CopyImage
+ * @abstract Create a copy of a image
+ * @param a Original image object
+ * @param b New image object to be allocated
+ * @return Boolean of success/failure
+ */
+bool CopyImage(Image *a, Image *b);
+/*!
+ * @function PassthruImage
+ * @abstract Loop through each pixel of image and run position and color through a callback.
+ * @param img Image object
+ * @param fn Callback function
+ * @discussion Return value of the callback is the new color at the position
+ */
+void PassthruImage(Image *img, int(*fn)(int x, int y, int col));
+/*!
+ * @function ScaleImage
+ * @abstract Scale image to given size
+ * @param a Original image object
+ * @param nw New width
+ * @param nh New height
+ * @param b New image object to be allocated
+ * @return Boolean of success/failure
+ */
+bool ScaleImage(Image *a, int nw, int nh, Image *img);
+/*!
+ * @function RotateImage
+ * @abstract Rotate a image by a given degree
+ * @param a Original image object
+ * @param angle Angle to rotate by
+ * @param b New image object to be allocated
+ * @return Boolean of success/failure
+ */
+bool RotateImage(Image *a, float angle, Image *b);
+/*!
+ * @function DrawLine
+ * @abstract Simple Bresenham line
+ * @param img Image object
+ * @param x0 Vector A X position
+ * @param y0 Vector A Y position
+ * @param x1 Vector B X position
+ * @param y1 Vector B Y position
+ * @param col Color of line
+ */
+void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col);
+/*!
+ * @function DrawCricle
+ * @abstract Draw a circle
+ * @param img Image object
+ * @param xc Centre X position
+ * @param yc Centre Y position
+ * @param r Circle radius
+ * @param col Color of cricle
+ * @param fill Fill circle boolean
+ */
+void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill);
+/*!
+ * @function DrawRect
+ * @abstract Draw a rectangle
+ * @param img Image object
+ * @param x X position
+ * @param y Y position
+ * @param w Rectangle width
+ * @param h Rectangle height
+ * @param col Color of rectangle
+ * @param fill Fill rectangle boolean
+ */
+void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill);
+/*!
+ * @function DrawTri
+ * @abstract Draw a triangle
+ * @param img Image object
+ * @param x0 Vector A X position
+ * @param y0 Vector A Y position
+ * @param x1 Vector B X position
+ * @param y1 Vector B Y position
+ * @param x2 Vector C X position
+ * @param y2 Vector C Y position
+ * @param col Color of line
+ * @param fill Fill triangle boolean
+ */
+void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, int col, bool fill);
+
+/*!
+ * @function DrawCharacter
+ * @abstract Render a character to a image
+ * @param b Image destination
+ * @param c Character to render
+ * @param x X offset
+ * @param y Y offset
+ * @param col Color of character
+ */
+bool LoadImage(Image *out, const char *path);
+/*!
+ * @function LoadImageMemory
+ * @abstract Load a .png from memory to image object
+ * @param out Image object to load data to
+ * @param data .png data
+ * @param length Length of data
+ * @return Boolean of success/failure
+ */
+bool LoadImageMemory(Image *out, const void *data, size_t length);
+/*!
+ * @function SaveImage
+ * @abstract Save image to .png file
+ * @param img Image object to write to disk
+ * @param path Path to save image
+ * @return Boolean of success/failure
+ */
+bool SaveImage(Image *img, const char *path);
+
+// MARK: Filesystem functions
+
+EXPORT bool DoesFileExist(const char *path);
+EXPORT bool DoesDirExist(const char *path);
+EXPORT char* FormatString(const char *fmt, ...);
+EXPORT char* LoadFile(const char *path, size_t *length);
+
+// MARK: Random functions
+
+typedef struct {
+    unsigned int seed;
+    int p1, p2;
+    unsigned int buffer[17];
+} Random;
+
+void InitRandom(Random *r, unsigned int s);
+unsigned int RandomBits(Random *r);
+float RandomFloat(Random *r);
+double RandomDouble(Random *r);
+int RandomInt(Random *r, int max);
+float RandomFloatRange(Random *r, float min, float max);
+double RandomDoubleRange(Random *r, double min, double max);
+int RandomIntRange(Random *r, int min, int max);
 
 #if defined(__cplusplus)
 }
