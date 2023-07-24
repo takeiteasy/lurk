@@ -96,6 +96,8 @@ extern "C" {
 #include "random.h"
 #include "filesystem.h"
 #include "image.h"
+#include "sprite.h"
+#include "lua.h"
 
 #if defined(__cplusplus)
 }

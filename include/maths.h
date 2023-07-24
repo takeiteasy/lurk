@@ -37,4 +37,13 @@ typedef vec4 quat;
 
 vec3 Vec3Cross(vec3 v1, vec3 v2);
 
+typedef struct {
+    vec2 position, texcoord;
+    vec4 color;
+} Vertex;
+
+typedef struct {
+    float x, y, w, h;
+} Rectangle;
+
 #endif /* maths_h */

@@ -324,16 +324,6 @@ static int ParseArguments(int argc, const char *argv[]) {
     return 1;
 }
 
-void UpdateTimer(Query *query) {
-    Timer *timer = ECS_FIELD(query, Timer, 0);
-    if (!timer->enabled)
-        return;
-    if (stm_ms(stm_since(timer->start)) > timer->interval) {
-//        timer->cb(timer->userdata);
-        timer->start = stm_now();
-    }
-}
-
 // MARK: Event+Window functions
 
 bool IsKeyDown(sapp_keycode key) {
@@ -399,6 +389,20 @@ void weeToggleCursorLock(void) {
     state.mouseLocked = !state.mouseLocked;
 }
 
+// MARK: ECS Extensions
+
+void UpdateTimer(Query *query) {
+    Timer *timer = ECS_FIELD(query, Timer, 0);
+    if (!timer->enabled)
+        return;
+    if (stm_ms(stm_since(timer->start)) > timer->interval) {
+//        timer->cb(timer->userdata);
+        timer->start = stm_now();
+    }
+}
+
+static Entity EcsRenerable = EcsNilEntity;
+
 // MARK: Program loop
 
 void InitCallback(void) {
@@ -412,7 +416,7 @@ void InitCallback(void) {
         .context = sapp_sgcontext()
     };
     sg_setup(&desc);
-    
+    stm_setup();
     snk_desc_t nk_desc = (snk_desc_t){0};
     snk_setup(&nk_desc);
     
@@ -460,7 +464,7 @@ void InitCallback(void) {
         .fs_images = state.color
     };
     
-    state.pip = sg_make_pipeline(&(sg_pipeline_desc){
+    sg_pipeline_desc pip_desc = (sg_pipeline_desc){
         .shader = sg_make_shader(framebuffer_program_shader_desc(sg_query_backend())),
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
         .index_type = SG_INDEXTYPE_UINT16,
@@ -475,7 +479,8 @@ void InitCallback(void) {
             .write_enabled = true
         },
         .cull_mode = SG_CULLMODE_BACK,
-    });
+    };
+    state.pip = sg_make_pipeline(&pip_desc);
     
     world.nextAvailableId = EcsNil;
     EcsSystem   = ECS_COMPONENT(System);
@@ -484,11 +489,36 @@ void InitCallback(void) {
     EcsChildOf  = ECS_TAG(result);
     EcsTimer    = ECS_COMPONENT(Timer);
     ECS_SYSTEM(UpdateTimer, EcsTimer);
+    
+    EcsRenerable = ECS_COMPONENT(Sprite);
 }
 
 void FrameCallback(void) {
     const int width = sapp_width();
     const int height = sapp_height();
+    
+    struct nk_context *ctx = snk_new_frame();
+    if (nk_begin(ctx, "Menu", nk_rect(0, 0, width, 40), 0)) {
+        nk_menubar_begin(ctx);
+        nk_layout_row_static(ctx, 30, 40, 5);
+        if (nk_menu_begin_label(ctx, "File", NK_TEXT_LEFT, nk_vec2(200, 200))) {
+            nk_layout_row_dynamic(ctx, 25, 1);
+            if (nk_menu_item_label(ctx, "New", NK_TEXT_LEFT)) {
+                
+            }
+            if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
+                
+            }
+            if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
+                
+            }
+            if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT))
+                sapp_quit();
+            nk_menu_end(ctx);
+        }
+        nk_menubar_end(ctx);
+        nk_end(ctx);
+    }
     
     sg_begin_pass(state.pass, &state.pass_action);
     sg_end_pass();
@@ -498,6 +528,7 @@ void FrameCallback(void) {
 
     sg_apply_bindings(&state.bind);
     sg_draw(0, 6, 1);
+    snk_render(width, height);
     sg_end_pass();
     sg_commit();
     
@@ -511,6 +542,7 @@ void FrameCallback(void) {
 }
 
 void EventCallback(const sapp_event* e) {
+    snk_handle_event(e);
     switch (e->type) {
         case SAPP_EVENTTYPE_KEY_DOWN:
 #if defined(DEBUG)
@@ -553,6 +585,7 @@ void CleanupCallback(void) {
     sg_destroy_pipeline(state.pip);
     sg_destroy_image(state.color);
     sg_destroy_image(state.depth);
+    snk_shutdown();
     sg_shutdown();
 }
 
