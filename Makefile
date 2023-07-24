@@ -3,8 +3,6 @@ ifeq ($(OS),Windows_NT)
 	CFLAGS=-O2 -DSOKOL_D3D11 -lkernel32 -luser32 -lshell32 -ldxgi -ld3d11 -lole32 -lgdi32
 	ARCH=win32
 	LIB_EXT=.dll
-	CIMGUI_FLAGS=
-	CIMGUI_BACKEND=
 	SHDC_FLAGS=hlsl5
 else
 	UNAME:=$(shell uname -s)
@@ -13,8 +11,6 @@ else
 		CFLAGS=-x objective-c -DSOKOL_METAL -fobjc-arc -framework Metal -framework Cocoa -framework MetalKit -framework Quartz -framework AudioToolbox
 		ARCH:=$(shell uname -m)
 		LIB_EXT=.dylib
-		CIMGUI_FLAGS=-x objective-c++ -fobjc-arc -framework Metal -framework Quartz
-		CIMGUI_BACKEND=imgui_impl_metal.mm
 		ifeq ($(ARCH),arm64)
 			ARCH=osx_arm64
 		else
@@ -26,8 +22,6 @@ else
 		ARCH=linux
 		SHDC_FLAGS=glsl330
 		LIB_EXT=.so
-		CIMGUI_FLAGS=
-		CIMGUI_BACKEND=
 	else
 		$(error OS not supported by this Makefile)
 	endif
@@ -36,8 +30,8 @@ endif
 CC=clang
 SOURCE=$(wildcard src/*.c)
 NAME=wee
-EXTRA_CFLAGS=-DWEE_ENABLE_ARGUMENTS -DWEE_ENABLE_CONFIG
-INCLUDE=-Ibuild -Ideps -Ideps/cimgui -Iinclude
+EXTRA_CFLAGS=
+INCLUDE=-Ibuild -Ideps -Iinclude
 
 EXE=build/$(NAME)_$(ARCH)$(PROG_EXT)
 ARCH_PATH=./tools/$(ARCH)
@@ -57,10 +51,7 @@ SHADER_OUT=$@
 shaders: $(SHADER_OUTS)
 	mv assets/*.h build/
 
-cimgui:
-	$(CC)++ -shared -fpic -std=c++14 -Ideps/cimgui -Ideps/cimgui/imgui $(CIMGUI_FLAGS) deps/cimgui/cimgui.cpp deps/cimgui/imgui/*.cpp deps/cimgui/imgui/backends/$(CIMGUI_BACKEND) -o build/libcimgui_$(ARCH)$(LIB_EXT)
-
 app: shaders cimgui
-	$(CC) $(INCLUDE) $(EXTRA_CFLAGS) $(CFLAGS) -Lbuild/ -lcimgui_$(ARCH) $(SOURCE) -o $(EXE)
+	$(CC) $(INCLUDE) $(EXTRA_CFLAGS) $(CFLAGS) $(SOURCE) -o $(EXE)
 
 .PHONY: all app shaders cimgui tools

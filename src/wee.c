@@ -12,11 +12,18 @@
 #include "sokol_app.h"
 #include "sokol_glue.h"
 #include "sokol_args.h"
-#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
-#include "cimgui.h"
-#include "sokol_imgui.h"
 #include "framebuffer.glsl.h"
 #include "sokol_time.h"
+#define NK_INCLUDE_FIXED_TYPES
+#define NK_INCLUDE_STANDARD_IO
+#define NK_INCLUDE_DEFAULT_ALLOCATOR
+#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
+#define NK_INCLUDE_FONT_BAKING
+#define NK_INCLUDE_DEFAULT_FONT
+#define NK_INCLUDE_STANDARD_VARARGS
+#define NK_IMPLEMENTATION
+#include "nuklear.h"
+#include "sokol_nuklear.h"
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
@@ -154,13 +161,8 @@ static struct {
     }
 };
 
-#define weeCallCallback(CB, ...) \
-    if (state.CB##Callback)        \
-        state.CB##Callback(state.userdata, __VA_ARGS__)
-
 // MARK: Config/Argument parsing function
 
-#if defined(WEE_ENABLE_CONFIG)
 #define MJSON_IMPL
 #include "mjson.h"
 #define JIM_IMPLEMENTATION
@@ -218,7 +220,6 @@ static int FileExists(const char *path) {
     return !access(path, F_OK);
 }
 
-#if defined(WEE_ENABLE_ARGUMENTS)
 static void Usage(const char *name) {
     printf("  usage: ./%s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
@@ -230,7 +231,6 @@ static void Usage(const char *name) {
     SETTINGS
 #undef X
 }
-#endif // WEE_ENABLE_ARGUMENTS
 
 static int LoadConfig(const char *path) {
 #if defined(WEE_ENABLE_CONFIG)
@@ -277,7 +277,6 @@ static int ExportConfig(const char *path) {
 }
 
 static int ParseArguments(int argc, const char *argv[]) {
-#if defined(WEE_ENABLE_ARGUMENTS)
     const char *name = argv[0];
     sargs_desc desc = (sargs_desc) {
         .argc = argc - 1,
@@ -290,7 +289,6 @@ static int ParseArguments(int argc, const char *argv[]) {
         Usage(name);
         return 0;
     }
-#if defined(WEE_ENABLE_CONFIG)
     if (sargs_exists("config")) {
         const char *path = sargs_value("config");
         if (!path) {
@@ -305,7 +303,6 @@ static int ParseArguments(int argc, const char *argv[]) {
         }
         LoadConfig(path);
     }
-#endif // WEE_ENABLE_CONFIG
 #endif // WEE_EMSCRIPTEN
     
 #define boolean 1
@@ -329,12 +326,10 @@ static int ParseArguments(int argc, const char *argv[]) {
 #undef X
 #undef boolean
 #undef integer
-#endif // WEE_ENABLE_ARGUMENTS
     return 1;
 }
-#endif // WEE_ENABLE_CONFIG
 
-static void UpdateTimer(Query *query) {
+void UpdateTimer(Query *query) {
     Timer *timer = ECS_FIELD(query, Timer, 0);
     if (!timer->enabled)
         return;
@@ -423,8 +418,8 @@ void InitCallback(void) {
     };
     sg_setup(&desc);
     
-    simgui_desc_t imgui_desc = (simgui_desc_t){0};
-    simgui_setup(&imgui_desc);
+    snk_desc_t nk_desc = (snk_desc_t){0};
+    snk_setup(&nk_desc);
     
     sg_image_desc img_desc = {
         .width = sapp_width(),
@@ -500,15 +495,6 @@ void FrameCallback(void) {
     const int width = sapp_width();
     const int height = sapp_height();
     
-//    simgui_frame_desc_t frame = (simgui_frame_desc_t){
-//        .width = width,
-//        .height = height,
-//        .delta_time = sapp_frame_duration(),
-//        .dpi_scale = sapp_dpi_scale()
-//    };
-//    simgui_new_frame(&frame);
-//    igText("Hello, world!");
-    
     sg_begin_pass(state.pass, &state.pass_action);
     sg_end_pass();
     
@@ -517,7 +503,6 @@ void FrameCallback(void) {
 
     sg_apply_bindings(&state.bind);
     sg_draw(0, 6, 1);
-//    simgui_render();
     sg_end_pass();
     sg_commit();
     
@@ -531,7 +516,6 @@ void FrameCallback(void) {
 }
 
 void EventCallback(const sapp_event* e) {
-    simgui_handle_event(e);
     switch (e->type) {
         case SAPP_EVENTTYPE_KEY_DOWN:
 #if defined(DEBUG)
@@ -574,7 +558,6 @@ void CleanupCallback(void) {
     sg_destroy_pipeline(state.pip);
     sg_destroy_image(state.color);
     sg_destroy_image(state.depth);
-    simgui_shutdown();
     sg_shutdown();
 }
 

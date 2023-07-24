@@ -1,3 +1,0 @@
-[submodule "deps/cimgui"]
-	path = deps/cimgui
-	url = git@github.com:takeiteasy/cimgui.git
