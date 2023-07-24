@@ -40,7 +40,7 @@ EXTRA_CFLAGS=-DWEE_ENABLE_ARGUMENTS -DWEE_ENABLE_CONFIG
 INCLUDE=-Ibuild -Ideps -Ideps/cimgui -Iinclude
 
 EXE=build/$(NAME)_$(ARCH)$(PROG_EXT)
-ARCH_PATH=./tools/bin/$(ARCH)
+ARCH_PATH=./tools/$(ARCH)
 
 SHDC_PATH=$(ARCH_PATH)/sokol-shdc$(PROG_EXT)
 SHADERS=$(wildcard assets/*.glsl)
