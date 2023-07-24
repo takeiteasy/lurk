@@ -40,7 +40,9 @@ targets:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/deps/cimgui, $(PROJECT_DIR)/deps/cimgui/imgui]
         OTHER_CFLAGS: ["-x objective-c++", -fobjc-arc]
   wee:
-    type: library.dynamic
+    type: application
+    info:
+      path: Info.plist
     platform: macOS
     sources:
         - path: assets/
@@ -51,6 +53,7 @@ targets:
           type: folder
         - path: build/
           type: folder
+        - path: include/
         - path: src/
     dependencies:
         - sdk: Cocoa.framework
@@ -60,16 +63,5 @@ targets:
         - sdk: AudioToolbox.framework
         - target: cimgui
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/imgui, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/include, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/imgui, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc -DWEE_ENABLE_ARGUMENTS, -DWEE_ENABLE_CONFIG]
-  test:
-    type: application
-    platform: macOS
-    info:
-      path: Info.plist
-    sources:
-        - path: tests/
-    dependencies:
-        - target: wee
-    settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps]
