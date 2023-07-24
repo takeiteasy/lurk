@@ -6,6 +6,7 @@
 //
 
 #include "wee.h"
+
 #define SOKOL_IMPL
 #include "sokol_gfx.h"
 #define SOKOL_NO_ENTRY
@@ -24,6 +25,11 @@
 #define NK_IMPLEMENTATION
 #include "nuklear.h"
 #include "sokol_nuklear.h"
+#define MJSON_IMPL
+#include "mjson.h"
+#define JIM_IMPLEMENTATION
+#include "jim.h"
+
 #include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
@@ -163,11 +169,6 @@ static struct {
 
 // MARK: Config/Argument parsing function
 
-#define MJSON_IMPL
-#include "mjson.h"
-#define JIM_IMPLEMENTATION
-#include "jim.h"
-
 static const char* UserPath(void) {
     const char *result;
     if (!(result = getenv("HOME"))) {
@@ -223,9 +224,7 @@ static int FileExists(const char *path) {
 static void Usage(const char *name) {
     printf("  usage: ./%s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
-#if defined(WEE_ENABLE_CONFIG)
     printf("\t  config (string) -- Path to .json config file (default: %s)\n", ConfigPath());
-#endif
 #define X(NAME, TYPE, VAL, DEFAULT, DOCS) \
     printf("\t  %s (%s) -- %s (default: %d)\n", NAME, #TYPE, DOCS, DEFAULT);
     SETTINGS
@@ -233,7 +232,6 @@ static void Usage(const char *name) {
 }
 
 static int LoadConfig(const char *path) {
-#if defined(WEE_ENABLE_CONFIG)
     const char *data = NULL;
     if (!(data = LoadFile(data, NULL)))
         return 0;
@@ -249,14 +247,12 @@ static int LoadConfig(const char *path) {
     if (!status)
         return 0;
     free((void*)data);
-#endif // WEE_ENABLE_CONFIG
     return 1;
 }
 
 #define jim_boolean jim_bool
 
 static int ExportConfig(const char *path) {
-#if defined(WEE_ENABLE_CONFIG)
     FILE *fh = fopen(path, "w");
     if (!fh)
         return 0;
@@ -272,7 +268,6 @@ static int ExportConfig(const char *path) {
 #undef X
     jim_object_end(&jim);
     fclose(fh);
-#endif // WEE_ENABLE_CONFIG
     return 1;
 }
 
@@ -562,7 +557,6 @@ void CleanupCallback(void) {
 }
 
 int main(int argc, const char *argv[]) {
-#if defined(WEE_ENABLE_CONFIG)
     state.configPath = ConfigPath();
     if (FileExists(state.configPath)) {
         if (!LoadConfig(state.configPath)) {
@@ -578,14 +572,11 @@ int main(int argc, const char *argv[]) {
             return EXIT_FAILURE;
         }
     }
-#endif
-#if defined(WEE_ENABLE_ARGUMENTS)
     if (argc > 1)
         if (!ParseArguments(argc, argv)) {
             fprintf(stderr, "[PARSE ARGUMENTS ERROR] Failed to parse arguments\n");
             return EXIT_FAILURE;
         }
-#endif
     
     state.desc.init_cb = InitCallback;
     state.desc.frame_cb = FrameCallback;
