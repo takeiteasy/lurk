@@ -80,6 +80,8 @@ Entity EcsRelation = EcsNilEntity;
 Entity EcsChildOf  = EcsNilEntity;
 Entity EcsTimer    = EcsNilEntity;
 
+EcsWorld world;
+
 static EcsSparse* NewSparse(void) {
     EcsSparse *result = malloc(sizeof(EcsSparse));
     *result = (EcsSparse){0};
@@ -179,8 +181,6 @@ static void* StorageGet(EcsStorage *storage, Entity e) {
     ASSERT(!ENTITY_IS_NIL(e));
     return StorageAt(storage, SparseAt(storage->sparse, e));
 }
-
-static EcsWorld world;
 
 bool EcsIsValid(Entity e) {
         uint32_t id = ENTITY_ID(e);

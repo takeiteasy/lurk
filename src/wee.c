@@ -137,8 +137,6 @@ static struct {
     sg_pipeline pip;
     sg_bindings bind;
     sg_image color, depth;
-    
-    EcsWorld ecs;
 } state = {
     .configPath = NULL,
     .userdata = NULL,
@@ -489,7 +487,7 @@ void InitCallback(void) {
         .cull_mode = SG_CULLMODE_BACK,
     });
     
-    state.ecs.nextAvailableId = EcsNil;
+    world.nextAvailableId = EcsNil;
     EcsSystem   = ECS_COMPONENT(System);
     EcsPrefab   = ECS_COMPONENT(Prefab);
     EcsRelation = ECS_COMPONENT(Relation);

@@ -80,6 +80,8 @@ typedef struct {
     uint32_t nextAvailableId;
 } EcsWorld;
 
+extern EcsWorld world;
+
 typedef struct {
     void **componentData;
     Entity *componentIndex;
