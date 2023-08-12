@@ -214,7 +214,7 @@ void json_enable_debug(int, FILE *);
 
 #endif // mjson_h
 
-#if defined(MJSON_IMPL)
+#if defined(MJSON_IMPLEMENTATION)
 #define _XOPEN_SOURCE 600
 
 #include <stdio.h>

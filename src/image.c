@@ -5,7 +5,7 @@
 //  Created by George Watson on 24/07/2023.
 //
 
-#include "image.h"
+#include "wee.h"
 
 int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
     return ((unsigned int)a << 24) | ((unsigned int)r << 16) | ((unsigned int)g << 8) | b;

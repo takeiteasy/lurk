@@ -27,7 +27,7 @@ targets:
           type: folder
         - path: build/
           type: folder
-        - path: include/
+        - path: wee.h
         - path: src/
     dependencies:
         - sdk: Cocoa.framework
@@ -36,5 +36,5 @@ targets:
         - sdk: Quartz.framework
         - sdk: AudioToolbox.framework
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/include, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]

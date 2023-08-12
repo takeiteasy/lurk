@@ -1,11 +1,24 @@
 # wee
 
 ## About
-_Wee_ **[wiː]** or "_Worst Engine Ever_" is a small, but extendable game engine/editor.
+_Wee_ framework.
 
 ## Gallery
 Nothing to see yet
 
+## Dependencies
+
+- [floooh/sokol](https://github.com/floooh/sokol) (zlib/libpng)
+    - sokol_gfx.h
+    - sokol_app.h
+    - sokol_glue.h
+    - sokol_args.h
+    - sokol_time.h
+- [esr/microjson](https://gitlab.com/esr/microjson/) (BSD-2-clause)
+    - mjson.h
+- [tsoding/jim](https://github.com/tsoding/jim) (MIT)
+    - jim.h
+    
 ## License
 ```
 The MIT License (MIT)

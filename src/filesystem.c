@@ -5,7 +5,7 @@
 //  Created by George Watson on 24/07/2023.
 //
 
-#include "filesystem.h"
+#include "wee.h"
 
 bool DoesFileExist(const char *path) {
     return !access(path, F_OK);
@@ -44,4 +44,16 @@ BAIL:
     if (length)
         *length = sz;
     return result;
+}
+
+const char* JoinPath(const char *a, const char *b) {
+    static char buffer[MAX_PATH];
+    buffer[0] = '\0';
+    strcat(buffer, a);
+    const char *seperator = PATH_SEPERATOR;
+    if (a[strlen(a)-1] != seperator[0] &&
+        b[0] != seperator[0])
+        strcat(buffer, seperator);
+    strcat(buffer, b);
+    return buffer;
 }

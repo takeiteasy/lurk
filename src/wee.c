@@ -6,42 +6,7 @@
 //
 
 #include "wee.h"
-
-#define SOKOL_IMPL
-#include "sokol_gfx.h"
-#define SOKOL_NO_ENTRY
-#include "sokol_app.h"
-#include "sokol_glue.h"
-#include "sokol_args.h"
 #include "framebuffer.glsl.h"
-#include "sokol_time.h"
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_IMPLEMENTATION
-#include "nuklear.h"
-#include "sokol_nuklear.h"
-#define MJSON_IMPL
-#include "mjson.h"
-#define JIM_IMPLEMENTATION
-#include "jim.h"
-
-#include <sys/stat.h>
-#include <dirent.h>
-#include <errno.h>
-#if defined(WEE_WINDOWS)
-#include <io.h>
-#define F_OK    0
-#define access _access
-#else
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#endif
 
 #if defined(WEE_WINDOWS)
 #include <shlobj.h>
@@ -76,55 +41,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 #endif // !_DLL
 #endif // WEE_WINDOWS
 
-#if !defined(MAX_PATH)
-#if defined(WEE_MAC)
-#define MAX_PATH 255
-#elif defined(WEE_WINDOWS)
-#define MAX_PATH 256
-#elif defined(WEE_LINUX)
-#define MAX_PATH 4096
-#endif
-#endif
-
-#if defined(WEE_POSIX)
-#define PATH_SEPERATOR "/"
-#else
-#define PATH_SEPERATOR "\\"
-#endif
-
-#if !defined(DEFAULT_CONFIG_NAME)
-#if defined(WEE_POSIX)
-#define DEFAULT_CONFIG_NAME ".wee.json"
-#else
-#define DEFAULT_CONFIG_NAME "wee.json"
-#endif // WEE_POSX
-#endif // DEFAULT_CONFIG_NAME
-
-#if !defined(DEFAULT_WINDOW_WIDTH)
-#define DEFAULT_WINDOW_WIDTH 640
-#endif
-
-#if !defined(DEFAULT_WINDOW_HEIGHT)
-#define DEFAULT_WINDOW_HEIGHT 480
-#endif
-
-#if !defined(DEFAULT_WINDOW_TITLE)
-#define DEFAULT_WINDOW_TITLE "WEE"
-#endif
-
-#define SETTINGS                                                                             \
-X("width", integer, width, DEFAULT_WINDOW_WIDTH, "Set window width")                         \
-X("height", integer, height, DEFAULT_WINDOW_HEIGHT, "Set window height")                     \
-X("sampleCount", integer, sample_count, 4, "Set the MSAA sample count of the   framebuffer") \
-X("swapInterval", integer, swap_interval, 1, "Set the preferred swap interval")              \
-X("highDPI", boolean, high_dpi, true, "Enable high-dpi compatability")                       \
-X("fullscreen", boolean, fullscreen, false, "Set fullscreen")                                \
-X("alpha", boolean, alpha, false, "Enable/disable alpha channel on framebuffers")            \
-X("clipboard", boolean, enable_clipboard, false, "Enable clipboard support")                 \
-X("clipboardSize", integer, clipboard_size, 1024, "Size of clipboard buffer (in bytes)")     \
-X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
-X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
-X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
 
 // MARK: state
 
@@ -141,8 +57,8 @@ static struct {
         bool button_clicked[SAPP_MAX_KEYCODES];
         bool mouse_down[SAPP_MAX_MOUSEBUTTONS];
         bool mouse_clicked[SAPP_MAX_MOUSEBUTTONS];
-        vec2 mouse_pos, last_mouse_pos;
-        vec2 mouse_scroll_delta, mouse_delta;
+        Vec2 mouse_pos, last_mouse_pos;
+        Vec2 mouse_scroll_delta, mouse_delta;
     } input;
     
     sg_pass_action pass_action;
@@ -187,18 +103,6 @@ static const char* UserPath(void) {
     return result;
 }
 
-static const char* JoinPath(const char *a, const char *b) {
-    static char buffer[MAX_PATH];
-    buffer[0] = '\0';
-    strcat(buffer, a);
-    const char *seperator = PATH_SEPERATOR;
-    if (a[strlen(a)-1] != seperator[0] &&
-        b[0] != seperator[0])
-        strcat(buffer, seperator);
-    strcat(buffer, b);
-    return buffer;
-}
-
 static const char* ConfigPath(void) {
 #if defined(WEE_CONFIG_FILE) && !defined(WEE_CONFIG_PATH)
     return WEE_CONFIG_FILE
@@ -215,10 +119,6 @@ static const char* ConfigPath(void) {
 #endif
     return JoinPath(path, file);
 #endif
-}
-
-static int FileExists(const char *path) {
-    return !access(path, F_OK);
 }
 
 static void Usage(const char *name) {
@@ -291,7 +191,7 @@ static int ParseArguments(int argc, const char *argv[]) {
             Usage(name);
             return 0;
         }
-        if (!FileExists(path)) {
+        if (!DoesFileExist(path)) {
             fprintf(stderr, "[FILE ERROR] No file exists at \"%s\"\n", path);
             Usage(name);
             return 0;
@@ -417,8 +317,6 @@ void InitCallback(void) {
     };
     sg_setup(&desc);
     stm_setup();
-    snk_desc_t nk_desc = (snk_desc_t){0};
-    snk_setup(&nk_desc);
     
     sg_image_desc img_desc = {
         .width = sapp_width(),
@@ -489,36 +387,11 @@ void InitCallback(void) {
     EcsChildOf  = ECS_TAG(result);
     EcsTimer    = ECS_COMPONENT(Timer);
     ECS_SYSTEM(UpdateTimer, EcsTimer);
-    
-    EcsRenerable = ECS_COMPONENT(Sprite);
 }
 
 void FrameCallback(void) {
     const int width = sapp_width();
     const int height = sapp_height();
-    
-    struct nk_context *ctx = snk_new_frame();
-    if (nk_begin(ctx, "Menu", nk_rect(0, 0, width, 40), 0)) {
-        nk_menubar_begin(ctx);
-        nk_layout_row_static(ctx, 30, 40, 5);
-        if (nk_menu_begin_label(ctx, "File", NK_TEXT_LEFT, nk_vec2(200, 200))) {
-            nk_layout_row_dynamic(ctx, 25, 1);
-            if (nk_menu_item_label(ctx, "New", NK_TEXT_LEFT)) {
-                
-            }
-            if (nk_menu_item_label(ctx, "Open", NK_TEXT_LEFT)) {
-                
-            }
-            if (nk_menu_item_label(ctx, "Save", NK_TEXT_LEFT)) {
-                
-            }
-            if (nk_menu_item_label(ctx, "Exit", NK_TEXT_LEFT))
-                sapp_quit();
-            nk_menu_end(ctx);
-        }
-        nk_menubar_end(ctx);
-        nk_end(ctx);
-    }
     
     sg_begin_pass(state.pass, &state.pass_action);
     sg_end_pass();
@@ -528,7 +401,6 @@ void FrameCallback(void) {
 
     sg_apply_bindings(&state.bind);
     sg_draw(0, 6, 1);
-    snk_render(width, height);
     sg_end_pass();
     sg_commit();
     
@@ -542,7 +414,6 @@ void FrameCallback(void) {
 }
 
 void EventCallback(const sapp_event* e) {
-    snk_handle_event(e);
     switch (e->type) {
         case SAPP_EVENTTYPE_KEY_DOWN:
 #if defined(DEBUG)
@@ -564,11 +435,11 @@ void EventCallback(const sapp_event* e) {
             break;
         case SAPP_EVENTTYPE_MOUSE_MOVE:
             state.input.last_mouse_pos = state.input.mouse_pos;
-            state.input.mouse_pos = (vec2){e->mouse_x, e->mouse_y};
-            state.input.mouse_delta = (vec2){e->mouse_dx, e->mouse_dy};
+            state.input.mouse_pos = (Vec2){e->mouse_x, e->mouse_y};
+            state.input.mouse_delta = (Vec2){e->mouse_dx, e->mouse_dy};
             break;
         case SAPP_EVENTTYPE_MOUSE_SCROLL:
-            state.input.mouse_scroll_delta = (vec2){e->scroll_x, e->scroll_y};
+            state.input.mouse_scroll_delta = (Vec2){e->scroll_x, e->scroll_y};
             break;
         case SAPP_EVENTTYPE_RESIZED:
             state.desc.width = e->window_width;
@@ -585,13 +456,12 @@ void CleanupCallback(void) {
     sg_destroy_pipeline(state.pip);
     sg_destroy_image(state.color);
     sg_destroy_image(state.depth);
-    snk_shutdown();
     sg_shutdown();
 }
 
 int main(int argc, const char *argv[]) {
     state.configPath = ConfigPath();
-    if (FileExists(state.configPath)) {
+    if (DoesFileExist(state.configPath)) {
         if (!LoadConfig(state.configPath)) {
             fprintf(stderr, "[IMPORT CONFIG ERROR] Failed to import config from \"%s\"\n", state.configPath);
             fprintf(stderr, "errno (%d): \"%s\"\n", errno, strerror(errno));

@@ -5,7 +5,7 @@
 //  Created by George Watson on 24/07/2023.
 //
 
-#include "random.h"
+#include "wee.h"
 
 void InitRandom(Random *r, unsigned int s) {
     r->seed = s;

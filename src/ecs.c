@@ -5,7 +5,8 @@
 //  Created by George Watson on 24/07/2023.
 //
 
-#include "ecs.h"
+#include "wee.h"
+
 #define SAFE_FREE(X)    \
     do                  \
     {                   \
@@ -273,7 +274,7 @@ Entity EcsNewTimer(int interval, bool enable, TimerCb cb, void *userdata) {
     Timer *timer = EcsGet(e, EcsTimer);
     timer->start = stm_now();
     timer->enabled = enable;
-    timer->interval = MAX(interval, 1);
+    timer->interval = Max(interval, 1);
     timer->cb = cb;
     timer->userdata = userdata;
     return e;

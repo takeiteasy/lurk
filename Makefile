@@ -30,8 +30,8 @@ endif
 CC=clang
 SOURCE=$(wildcard src/*.c)
 NAME=wee
-EXTRA_CFLAGS=
-INCLUDE=-Ibuild -Ideps -Iinclude
+EXTRA_CFLAGS=-fenable-matrix
+INCLUDE=-Ibuild -Ideps -I.
 
 EXE=build/$(NAME)_$(ARCH)$(PROG_EXT)
 ARCH_PATH=./tools/$(ARCH)
@@ -51,7 +51,7 @@ SHADER_OUT=$@
 shaders: $(SHADER_OUTS)
 	mv assets/*.h build/
 
-app: shaders cimgui
+app: shaders
 	$(CC) $(INCLUDE) $(EXTRA_CFLAGS) $(CFLAGS) $(SOURCE) -o $(EXE)
 
-.PHONY: all app shaders cimgui tools
+.PHONY: all app shaders tools
