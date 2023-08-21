@@ -50,10 +50,13 @@ const char* JoinPath(const char *a, const char *b) {
     static char buffer[MAX_PATH];
     buffer[0] = '\0';
     strcat(buffer, a);
-    const char *seperator = PATH_SEPERATOR;
-    if (a[strlen(a)-1] != seperator[0] &&
-        b[0] != seperator[0])
+    if (a[strlen(a)-1] != PATH_SEPERATOR && b[0] != PATH_SEPERATOR) {
+        static char c = PATH_SEPERATOR;
+        char *seperator = (char*)&c;
+        seperator[1] = '\0';
         strcat(buffer, seperator);
+    }
     strcat(buffer, b);
+//    buffer[strlen(buffer)] = '\0';
     return buffer;
 }

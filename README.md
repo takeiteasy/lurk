@@ -1,7 +1,8 @@
 # wee
 
 ## About
-_Wee_ framework.
+
+_Wee_ framework. **WIP**
 
 ## Gallery
 Nothing to see yet
@@ -18,6 +19,10 @@ Nothing to see yet
     - mjson.h
 - [tsoding/jim](https://github.com/tsoding/jim) (MIT)
     - jim.h
+- [win32ports/dirent_h](https://github.com/win32ports/dirent_h/) (MIT)
+    - dirent_win32.h
+- [tidwall/hashmap.c](https://github.com/tidwall/hashmap.c) (MIT)
+    - hashmap.h
     
 ## License
 ```

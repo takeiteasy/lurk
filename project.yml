@@ -14,9 +14,7 @@ settings:
 
 targets:
   wee:
-    type: application
-    info:
-      path: Info.plist
+    type: tool
     platform: macOS
     sources:
         - path: assets/
@@ -27,6 +25,9 @@ targets:
           type: folder
         - path: build/
           type: folder
+        - path: Makefile
+        - path: project.yml
+        - path: README.md
         - path: wee.h
         - path: src/
     dependencies:
@@ -36,5 +37,13 @@ targets:
         - sdk: Quartz.framework
         - sdk: AudioToolbox.framework
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]
+  game:
+    type: library.dynamic
+    platform: macOS
+    sources:
+        - path: game/
+    settings:
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
+        OTHER_CFLAGS: [-fenable-matrix]

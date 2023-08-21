@@ -6,6 +6,7 @@
 //
 
 #include "wee.h"
+#include "sokol_time.h"
 
 #define SAFE_FREE(X)    \
     do                  \
@@ -80,8 +81,6 @@ Entity EcsPrefab   = EcsNilEntity;
 Entity EcsRelation = EcsNilEntity;
 Entity EcsChildOf  = EcsNilEntity;
 Entity EcsTimer    = EcsNilEntity;
-
-EcsWorld world;
 
 static EcsSparse* NewSparse(void) {
     EcsSparse *result = malloc(sizeof(EcsSparse));
@@ -183,63 +182,98 @@ static void* StorageGet(EcsStorage *storage, Entity e) {
     return StorageAt(storage, SparseAt(storage->sparse, e));
 }
 
-bool EcsIsValid(Entity e) {
-        uint32_t id = ENTITY_ID(e);
-    return id < world.sizeOfEntities && ENTITY_CMP(world.entities[id], e);
+static void UpdateTimer(Query *query) {
+    Timer *timer = ECS_FIELD(query, Timer, 0);
+    if (!timer->enabled)
+        return;
+    if (stm_ms(stm_since(timer->start)) > timer->interval) {
+//        timer->cb(timer->userdata);
+        timer->start = stm_now();
+    }
 }
 
-static Entity EcsNewEntityType(uint8_t type) {
-        if (world.sizeOfRecyclable) {
-        uint32_t idx = world.recyclable[world.sizeOfRecyclable-1];
-        Entity e = world.entities[idx];
+void EcsNewWorld(EcsWorld *world) {
+    world->nextAvailableId = EcsNil;
+    EcsSystem   = ECS_COMPONENT(world, System);
+    EcsPrefab   = ECS_COMPONENT(world, Prefab);
+    EcsRelation = ECS_COMPONENT(world, Relation);
+    EcsChildOf  = ECS_TAG(world);
+    EcsTimer    = ECS_COMPONENT(world, Timer);
+    ECS_SYSTEM(world, UpdateTimer, EcsTimer);
+}
+
+void EcsDestroyWorld(EcsWorld *world) {
+    for (int i = 0; i < world->sizeOfStorages; i++) {
+        EcsStorage* storage = world->storages[i];
+        if (storage) {
+            free(storage->sparse->sparse);
+            free(storage->sparse->dense);
+            free(storage->sparse);
+            free(storage->data);
+            free(storage);
+        }
+    }
+    free(world->recyclable);
+    memset(world, 0, sizeof(EcsWorld));
+}
+
+bool EcsIsValid(EcsWorld *world, Entity e) {
+        uint32_t id = ENTITY_ID(e);
+    return id < world->sizeOfEntities && ENTITY_CMP(world->entities[id], e);
+}
+
+static Entity EcsNewEntityType(EcsWorld *world, uint8_t type) {
+        if (world->sizeOfRecyclable) {
+        uint32_t idx = world->recyclable[world->sizeOfRecyclable-1];
+        Entity e = world->entities[idx];
         Entity new = ECS_COMPOSE_ENTITY(ENTITY_ID(e), ENTITY_VERSION(e), type);
-        world.entities[idx] = new;
-        world.recyclable = realloc(world.recyclable, --world.sizeOfRecyclable * sizeof(uint32_t));
+        world->entities[idx] = new;
+        world->recyclable = realloc(world->recyclable, --world->sizeOfRecyclable * sizeof(uint32_t));
         return new;
     } else {
-        world.entities = realloc(world.entities, ++world.sizeOfEntities * sizeof(Entity));
-        Entity e = ECS_COMPOSE_ENTITY((uint32_t)world.sizeOfEntities-1, 0, type);
-        world.entities[world.sizeOfEntities-1] = e;
+        world->entities = realloc(world->entities, ++world->sizeOfEntities * sizeof(Entity));
+        Entity e = ECS_COMPOSE_ENTITY((uint32_t)world->sizeOfEntities-1, 0, type);
+        world->entities[world->sizeOfEntities-1] = e;
         return e;
     }
 }
 
-Entity EcsNewEntity(void) {
-    return EcsNewEntityType(EcsEntityType);
+Entity EcsNewEntity(EcsWorld *world) {
+    return EcsNewEntityType(world, EcsEntityType);
 }
 
-static EcsStorage* EcsFind(Entity e) {
-    for (int i = 0; i < world.sizeOfStorages; i++)
-        if (ENTITY_ID(world.storages[i]->componentId) == ENTITY_ID(e))
-            return world.storages[i];
+static EcsStorage* EcsFind(EcsWorld *world, Entity e) {
+    for (int i = 0; i < world->sizeOfStorages; i++)
+        if (ENTITY_ID(world->storages[i]->componentId) == ENTITY_ID(e))
+            return world->storages[i];
     return NULL;
 }
 
-static EcsStorage* EcsAssure(Entity componentId, size_t sizeOfComponent) {
-    EcsStorage *found = EcsFind(componentId);
+static EcsStorage* EcsAssure(EcsWorld *world, Entity componentId, size_t sizeOfComponent) {
+    EcsStorage *found = EcsFind(world, componentId);
     if (found)
         return found;
     EcsStorage *new = NewStorage(componentId, sizeOfComponent);
-    world.storages = realloc(world.storages, (world.sizeOfStorages + 1) * sizeof * world.storages);
-    world.storages[world.sizeOfStorages++] = new;
+    world->storages = realloc(world->storages, (world->sizeOfStorages + 1) * sizeof * world->storages);
+    world->storages[world->sizeOfStorages++] = new;
     return new;
 }
 
-bool EcsHas(Entity entity, Entity component) {
-        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(component), Entity, component);
-    return StorageHas(EcsFind(component), entity);
+bool EcsHas(EcsWorld *world, Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, component), Entity, component);
+    return StorageHas(EcsFind(world, component), entity);
 }
 
-Entity EcsNewComponent(size_t sizeOfComponent) {
-    Entity e = EcsNewEntityType(EcsComponentType);
-    return EcsAssure(e, sizeOfComponent) ? e : EcsNilEntity;
+Entity EcsNewComponent(EcsWorld *world, size_t sizeOfComponent) {
+    Entity e = EcsNewEntityType(world, EcsComponentType);
+    return EcsAssure(world, e, sizeOfComponent) ? e : EcsNilEntity;
 }
 
-Entity EcsNewSystem(SystemCb fn, size_t sizeOfComponents, ...) {
-    Entity e = EcsNewEntityType(EcsSystemType);
-    EcsAttach(e, EcsSystem);
-    System *c = EcsGet(e, EcsSystem);
+Entity EcsNewSystem(EcsWorld *world, SystemCb fn, size_t sizeOfComponents, ...) {
+    Entity e = EcsNewEntityType(world, EcsSystemType);
+    EcsAttach(world, e, EcsSystem);
+    System *c = EcsGet(world, e, EcsSystem);
     c->callback = fn;
     c->sizeOfComponents = sizeOfComponents;
     c->components = malloc(sizeof(Entity) * sizeOfComponents);
@@ -253,10 +287,10 @@ Entity EcsNewSystem(SystemCb fn, size_t sizeOfComponents, ...) {
     return e;
 }
 
-Entity EcsNewPrefab(size_t sizeOfComponents, ...) {
-    Entity e = EcsNewEntityType(EcsPrefabType);
-    EcsAttach(e, EcsPrefab);
-    Prefab *c = EcsGet(e, EcsPrefab);
+Entity EcsNewPrefab(EcsWorld *world, size_t sizeOfComponents, ...) {
+    Entity e = EcsNewEntityType(world, EcsPrefabType);
+    EcsAttach(world, e, EcsPrefab);
+    Prefab *c = EcsGet(world, e, EcsPrefab);
     c->sizeOfComponents = sizeOfComponents;
     c->components = malloc(sizeof(Entity) * sizeOfComponents);
     
@@ -268,10 +302,10 @@ Entity EcsNewPrefab(size_t sizeOfComponents, ...) {
     return e;
 }
 
-Entity EcsNewTimer(int interval, bool enable, TimerCb cb, void *userdata) {
-    Entity e = EcsNewEntityType(EcsTimerType);
-    EcsAttach(e, EcsTimer);
-    Timer *timer = EcsGet(e, EcsTimer);
+Entity EcsNewTimer(EcsWorld *world, int interval, bool enable, TimerCb cb, void *userdata) {
+    Entity e = EcsNewEntityType(world, EcsTimerType);
+    EcsAttach(world, e, EcsTimer);
+    Timer *timer = EcsGet(world, e, EcsTimer);
     timer->start = stm_now();
     timer->enabled = enable;
     timer->interval = Max(interval, 1);
@@ -283,12 +317,12 @@ Entity EcsNewTimer(int interval, bool enable, TimerCb cb, void *userdata) {
     X(System, 0)  \
     X(Prefab, 1)
 
-void DestroyEntity(Entity e) {
-        ECS_ASSERT(EcsIsValid(e), Entity, e);
+void DestroyEntity(EcsWorld *world, Entity e) {
+        ECS_ASSERT(EcsIsValid(world, e), Entity, e);
     switch (e.parts.flag) {
 #define X(TYPE, _)                                 \
         case Ecs##TYPE##Type: {                    \
-            TYPE *s = EcsGet(e, Ecs##TYPE); \
+            TYPE *s = EcsGet(world, e, Ecs##TYPE); \
             if (s && s->components)                \
                 free(s->components);               \
             break;                                 \
@@ -296,35 +330,35 @@ void DestroyEntity(Entity e) {
         DEL_TYPES
 #undef X
     }
-    for (size_t i = world.sizeOfStorages; i; --i)
-        if (world.storages[i - 1] && SparseHas(world.storages[i - 1]->sparse, e))
-            StorageRemove(world.storages[i - 1], e);
+    for (size_t i = world->sizeOfStorages; i; --i)
+        if (world->storages[i - 1] && SparseHas(world->storages[i - 1]->sparse, e))
+            StorageRemove(world->storages[i - 1], e);
     uint32_t id = ENTITY_ID(e);
-    world.entities[id] = ECS_COMPOSE_ENTITY(id, ENTITY_VERSION(e) + 1, 0);
-    world.recyclable = realloc(world.recyclable, ++world.sizeOfRecyclable * sizeof(uint32_t));
-    world.recyclable[world.sizeOfRecyclable-1] = id;
+    world->entities[id] = ECS_COMPOSE_ENTITY(id, ENTITY_VERSION(e) + 1, 0);
+    world->recyclable = realloc(world->recyclable, ++world->sizeOfRecyclable * sizeof(uint32_t));
+    world->recyclable[world->sizeOfRecyclable-1] = id;
 }
 
-void EcsAttach(Entity entity, Entity component) {
+void EcsAttach(EcsWorld *world, Entity entity, Entity component) {
     switch (component.parts.flag) {
         case EcsRelationType: // Use EcsRelation()
         case EcsSystemType: // NOTE: potentially could be used for some sort of event system
         case EcsTimerType:
             ASSERT(false);
         case EcsPrefabType: {
-            Prefab *c = EcsGet(component, EcsPrefab);
+            Prefab *c = EcsGet(world, component, EcsPrefab);
             for (int i = 0; i < c->sizeOfComponents; i++) {
                 if (ENTITY_IS_NIL(c->components[i]))
                     break;
-                EcsAttach(entity, c->components[i]);
+                EcsAttach(world, entity, c->components[i]);
             }
             break;
         }
         case EcsComponentType:
         default: {
-            ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-            ECS_ASSERT(EcsIsValid(component), Entity, component);
-            EcsStorage *storage = EcsFind(component);
+            ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+            ECS_ASSERT(EcsIsValid(world, component), Entity, component);
+            EcsStorage *storage = EcsFind(world, component);
             ASSERT(storage);
             StorageEmplace(storage, entity);
             break;
@@ -332,37 +366,37 @@ void EcsAttach(Entity entity, Entity component) {
     }
 }
 
-void EcsAssociate(Entity entity, Entity object, Entity relation) {
-        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(object), Entity, object);
+void EcsAssociate(EcsWorld *world, Entity entity, Entity object, Entity relation) {
+        ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, object), Entity, object);
     ECS_ASSERT(ENTITY_ISA(object, Component), Entity, object);
-    ECS_ASSERT(EcsIsValid(relation), Entity, relation);
+    ECS_ASSERT(EcsIsValid(world, relation), Entity, relation);
     ECS_ASSERT(ENTITY_ISA(relation, Entity), Entity, relation);
-    EcsAttach(entity, EcsRelation);
-    Relation *pair = EcsGet(entity, EcsRelation);
+    EcsAttach(world, entity, EcsRelation);
+    Relation *pair = EcsGet(world, entity, EcsRelation);
     pair->object = object;
     pair->relation = relation;
 }
 
-void EcsDetach(Entity entity, Entity component) {
-        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(component), Entity, component);
-    EcsStorage *storage = EcsFind(component);
+void EcsDetach(EcsWorld *world, Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, component), Entity, component);
+    EcsStorage *storage = EcsFind(world, component);
     ASSERT(storage);
     ECS_ASSERT(StorageHas(storage, entity), Storage, storage);
     StorageRemove(storage, entity);
 }
 
-void EcsDisassociate(Entity entity) {
-    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsHas(entity, EcsRelation), Entity, entity);
-    EcsDetach(entity, EcsRelation);
+void EcsDisassociate(EcsWorld *world, Entity entity) {
+    ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsHas(world, entity, EcsRelation), Entity, entity);
+    EcsDetach(world, entity, EcsRelation);
 }
 
-bool EcsHasRelation(Entity entity, Entity object) {
-    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(object), Entity, object);
-    EcsStorage *storage = EcsFind(EcsRelation);
+bool EcsHasRelation(EcsWorld *world, Entity entity, Entity object) {
+    ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, object), Entity, object);
+    EcsStorage *storage = EcsFind(world, EcsRelation);
     if (!storage)
         return false;
     Relation *relation = StorageGet(storage, entity);
@@ -371,10 +405,10 @@ bool EcsHasRelation(Entity entity, Entity object) {
     return ENTITY_CMP(relation->object, object);
 }
 
-bool EcsRelated(Entity entity, Entity relation) {
-    ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(relation), Entity, relation);
-    EcsStorage *storage = EcsFind(EcsRelation);
+bool EcsRelated(EcsWorld *world, Entity entity, Entity relation) {
+    ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, relation), Entity, relation);
+    EcsStorage *storage = EcsFind(world, EcsRelation);
     if (!storage)
         return false;
     Relation *_relation = StorageGet(storage, entity);
@@ -383,18 +417,18 @@ bool EcsRelated(Entity entity, Entity relation) {
     return ENTITY_CMP(_relation->relation, relation);
 }
 
-void* EcsGet(Entity entity, Entity component) {
-        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(component), Entity, component);
-    EcsStorage *storage = EcsFind(component);
+void* EcsGet(EcsWorld *world, Entity entity, Entity component) {
+        ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, component), Entity, component);
+    EcsStorage *storage = EcsFind(world, component);
     ASSERT(storage);
     return StorageHas(storage, entity) ? StorageGet(storage, entity) : NULL;
 }
 
-void EcsSet(Entity entity, Entity component, const void *data) {
-        ECS_ASSERT(EcsIsValid(entity), Entity, entity);
-    ECS_ASSERT(EcsIsValid(component), Entity, component);
-    EcsStorage *storage = EcsFind(component);
+void EcsSet(EcsWorld *world, Entity entity, Entity component, const void *data) {
+        ECS_ASSERT(EcsIsValid(world, entity), Entity, entity);
+    ECS_ASSERT(EcsIsValid(world, component), Entity, component);
+    EcsStorage *storage = EcsFind(world, component);
     ASSERT(storage);
     
     void *componentData = StorageHas(storage, entity) ?
@@ -409,10 +443,10 @@ static void DestroyQuery(Query *query) {
     SAFE_FREE(query->componentData);
 }
 
-void EcsRelations(Entity parent, Entity relation, void *userdata, SystemCb cb) {
-    EcsStorage *pairs = EcsFind(EcsRelation);
-    for (size_t i = 0; i < world.sizeOfEntities; i++) {
-        Entity e = world.entities[i];
+void EcsRelations(EcsWorld *world, Entity parent, Entity relation, void *userdata, SystemCb cb) {
+    EcsStorage *pairs = EcsFind(world, EcsRelation);
+    for (size_t i = 0; i < world->sizeOfEntities; i++) {
+        Entity e = world->entities[i];
         if (!StorageHas(pairs, e))
             continue;
         Relation *pair = StorageGet(pairs, e);
@@ -432,65 +466,65 @@ void EcsRelations(Entity parent, Entity relation, void *userdata, SystemCb cb) {
     }
 }
 
-void EcsEnableSystem(Entity system) {
-    ECS_ASSERT(EcsIsValid(system), Entity, system);
+void EcsEnableSystem(EcsWorld *world, Entity system) {
+    ECS_ASSERT(EcsIsValid(world, system), Entity, system);
     ECS_ASSERT(ENTITY_ISA(system, System), Entity, system);
-    System *s = EcsGet(system, EcsSystem);
+    System *s = EcsGet(world, system, EcsSystem);
     s->enabled = true;
 }
 
-void EcsDisableSystem(Entity system) {
-    ECS_ASSERT(EcsIsValid(system), Entity, system);
+void EcsDisableSystem(EcsWorld *world, Entity system) {
+    ECS_ASSERT(EcsIsValid(world, system), Entity, system);
     ECS_ASSERT(ENTITY_ISA(system, System), Entity, system);
-    System *s = EcsGet(system, EcsSystem);
+    System *s = EcsGet(world, system, EcsSystem);
     s->enabled = false;
 }
 
-void EcsEnableTimer(Entity timer) {
-    ECS_ASSERT(EcsIsValid(timer), Entity, timer);
+void EcsEnableTimer(EcsWorld *world, Entity timer) {
+    ECS_ASSERT(EcsIsValid(world, timer), Entity, timer);
     ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
-    Timer *t = EcsGet(timer, EcsTimer);
+    Timer *t = EcsGet(world, timer, EcsTimer);
     t->enabled = true;
     t->start = stm_now();
 }
 
-void EcsDisableTimer(Entity timer) {
-    ECS_ASSERT(EcsIsValid(timer), Entity, timer);
+void EcsDisableTimer(EcsWorld *world, Entity timer) {
+    ECS_ASSERT(EcsIsValid(world, timer), Entity, timer);
     ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
-    Timer *t = EcsGet(timer, EcsTimer);
+    Timer *t = EcsGet(world, timer, EcsTimer);
     t->enabled = false;
 }
 
-void EcsRunSystem(Entity e) {
-    ECS_ASSERT(EcsIsValid(e), Entity, e);
+void EcsRunSystem(EcsWorld *world, Entity e) {
+    ECS_ASSERT(EcsIsValid(world, e), Entity, e);
     ECS_ASSERT(ENTITY_ISA(e, System), Entity, e);
-    System *system = EcsGet(e, EcsSystem);
-    EcsQuery(system->callback, NULL, system->components, system->sizeOfComponents);
+    System *system = EcsGet(world, e, EcsSystem);
+    EcsQuery(world, system->callback, NULL, system->components, system->sizeOfComponents);
 }
 
-void EcsStep(void) {
-    EcsStorage *storage = world.storages[ENTITY_ID(EcsSystem)];
+void EcsStep(EcsWorld *world) {
+    EcsStorage *storage = world->storages[ENTITY_ID(EcsSystem)];
     for (int i = 0; i < storage->sparse->sizeOfDense; i++) {
         System *system = StorageGet(storage, storage->sparse->dense[i]);
         if (system->enabled)
-            EcsQuery(system->callback, NULL, system->components, system->sizeOfComponents);
+            EcsQuery(world, system->callback, NULL, system->components, system->sizeOfComponents);
     }
 }
 
-void EcsQuery(SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents) {
-    for (size_t e = 0; e < world.sizeOfEntities; e++) {
+void EcsQuery(EcsWorld *world, SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents) {
+    for (size_t e = 0; e < world->sizeOfEntities; e++) {
         bool hasComponents = true;
         Query query = {
             .componentData = NULL,
             .componentIndex = NULL,
             .sizeOfComponentData = 0,
-            .entity = world.entities[e],
+            .entity = world->entities[e],
             .userdata = userdata
         };
         
         for (size_t i = 0; i < sizeOfComponents; i++) {
-            EcsStorage *storage = EcsFind(components[i]);
-            if (!StorageHas(storage, world.entities[e])) {
+            EcsStorage *storage = EcsFind(world, components[i]);
+            if (!StorageHas(storage, world->entities[e])) {
                 hasComponents = false;
                 break;
             }
@@ -499,7 +533,7 @@ void EcsQuery(SystemCb cb, void *userdata, Entity *components, size_t sizeOfComp
             query.componentData = realloc(query.componentData, query.sizeOfComponentData * sizeof(void*));
             query.componentIndex = realloc(query.componentIndex, query.sizeOfComponentData * sizeof(Entity));
             query.componentIndex[query.sizeOfComponentData-1] = components[i];
-            query.componentData[query.sizeOfComponentData-1] = StorageGet(storage, world.entities[e]);
+            query.componentData[query.sizeOfComponentData-1] = StorageGet(storage, world->entities[e]);
         }
         
         if (hasComponents)

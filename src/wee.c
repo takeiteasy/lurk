@@ -5,61 +5,43 @@
 //  Created by George Watson on 21/07/2023.
 //
 
+#define SOKOL_IMPL
+#define MJSON_IMPLEMENTATION
+#define JIM_IMPLEMENTATION
+#define HASHMAP_IMPL
+#include "sokol_gfx.h"
+#include "sokol_app.h"
+#include "sokol_glue.h"
+#include "sokol_args.h"
+#include "sokol_time.h"
+#include "jim.h"
+#include "mjson.h"
+#include "hashmap.h"
 #include "wee.h"
 #include "framebuffer.glsl.h"
 
-#if defined(WEE_WINDOWS)
-#include <shlobj.h>
-#if !defined(_DLL)
-#include <shellapi.h>
-#pragma comment(lib, "shell32")
-
-extern int main(int argc, const char *argv[]);
-
-#ifdef UNICODE
-int CALLBACK wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow)
+typedef struct wis {
+    const char *path;
+    void *handle;
+#if defined(WEE_POSIX)
+    ino_t handleID;
 #else
-int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
-#endif // UNICODE
-{
-    int n, argc;
-    LPWSTR *wargv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    char **argv = calloc(argc + 1, sizeof(int));
-
-    (void)hInstance;
-    (void)hPrevInstance;
-    (void)lpCmdLine;
-    (void)nCmdShow;
-
-    for (n = 0; n < argc; n++) {
-        int len = WideCharToMultiByte(CP_UTF8, 0, wargv[n], -1, 0, 0, NULL, NULL);
-        argv[n] = malloc(len);
-        WideCharToMultiByte(CP_UTF8, 0, wargv[n], -1, argv[n], len, NULL, NULL);
-    }
-    return main(argc, argv);
-}
-#endif // !_DLL
-#endif // WEE_WINDOWS
-
-
-// MARK: state
+    FILETIME writeTime;
+#endif
+    weeeeeeeeeeeeeeeeeeeeeeeeeeeee *context;
+    weeScene *scene;
+    struct wis *next;
+} weeInternalScene;
 
 static struct {
-    const char *configPath;
+    weeInternalScene *wis;
+    struct hashmap *map;
+    
     void *userdata;
     bool running;
     bool mouseHidden;
     bool mouseLocked;
     sapp_desc desc;
-    
-    struct {
-        bool button_down[SAPP_MAX_KEYCODES];
-        bool button_clicked[SAPP_MAX_KEYCODES];
-        bool mouse_down[SAPP_MAX_MOUSEBUTTONS];
-        bool mouse_clicked[SAPP_MAX_MOUSEBUTTONS];
-        Vec2 mouse_pos, last_mouse_pos;
-        Vec2 mouse_scroll_delta, mouse_delta;
-    } input;
     
     sg_pass_action pass_action;
     sg_pass pass;
@@ -67,7 +49,6 @@ static struct {
     sg_bindings bind;
     sg_image color, depth;
 } state = {
-    .configPath = NULL,
     .userdata = NULL,
     .running = false,
     .mouseHidden = false,
@@ -103,28 +84,10 @@ static const char* UserPath(void) {
     return result;
 }
 
-static const char* ConfigPath(void) {
-#if defined(WEE_CONFIG_FILE) && !defined(WEE_CONFIG_PATH)
-    return WEE_CONFIG_FILE
-#else
-#if defined(WEE_CONFIG_PATH)
-    const char *path = WEE_CONFIG_PATH;
-#else
-    const char *path = UserPath();
-#endif
-#if defined(WEE_CONFIG_FILE)
-    cosnt char *file = WEE_CONFIG_FILE;
-#else
-    const char *file = DEFAULT_CONFIG_NAME;
-#endif
-    return JoinPath(path, file);
-#endif
-}
-
 static void Usage(const char *name) {
     printf("  usage: ./%s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
-    printf("\t  config (string) -- Path to .json config file (default: %s)\n", ConfigPath());
+    printf("\t  config (string) -- Path to .json config file\n");
 #define X(NAME, TYPE, VAL, DEFAULT, DOCS) \
     printf("\t  %s (%s) -- %s (default: %d)\n", NAME, #TYPE, DOCS, DEFAULT);
     SETTINGS
@@ -133,7 +96,7 @@ static void Usage(const char *name) {
 
 static int LoadConfig(const char *path) {
     const char *data = NULL;
-    if (!(data = LoadFile(data, NULL)))
+    if (!(data = LoadFile(path, NULL)))
         return 0;
 
     const struct json_attr_t config_attr[] = {
@@ -171,7 +134,7 @@ static int ExportConfig(const char *path) {
     return 1;
 }
 
-static int ParseArguments(int argc, const char *argv[]) {
+static int ParseArguments(int argc, char *argv[]) {
     const char *name = argv[0];
     sargs_desc desc = (sargs_desc) {
         .argc = argc - 1,
@@ -224,31 +187,7 @@ static int ParseArguments(int argc, const char *argv[]) {
     return 1;
 }
 
-// MARK: Event+Window functions
-
-bool IsKeyDown(sapp_keycode key) {
-    return state.input.button_down[key];
-}
-
-bool IsKeyUp(sapp_keycode key) {
-    return !state.input.button_down[key];
-}
-
-bool WasKeyClicked(sapp_keycode key) {
-    return state.input.button_clicked[key];
-}
-
-bool IsButtonDown(sapp_mousebutton button) {
-    return state.input.mouse_down[button];
-}
-
-bool IsButtonUp(sapp_mousebutton button) {
-    return !state.input.mouse_down[button];
-}
-
-bool WasButtonPressed(sapp_mousebutton button) {
-    return state.input.mouse_clicked[button];
-}
+// MARK: Window functions
 
 int weeWindowWidth(void) {
     return state.running ? sapp_width() : -1;
@@ -289,23 +228,9 @@ void weeToggleCursorLock(void) {
     state.mouseLocked = !state.mouseLocked;
 }
 
-// MARK: ECS Extensions
-
-void UpdateTimer(Query *query) {
-    Timer *timer = ECS_FIELD(query, Timer, 0);
-    if (!timer->enabled)
-        return;
-    if (stm_ms(stm_since(timer->start)) > timer->interval) {
-//        timer->cb(timer->userdata);
-        timer->start = stm_now();
-    }
-}
-
-static Entity EcsRenerable = EcsNilEntity;
-
 // MARK: Program loop
 
-void InitCallback(void) {
+static void InitCallback(void) {
     if (state.mouseHidden)
         sapp_show_mouse(false);
     if (state.mouseLocked)
@@ -380,111 +305,344 @@ void InitCallback(void) {
     };
     state.pip = sg_make_pipeline(&pip_desc);
     
-    world.nextAvailableId = EcsNil;
-    EcsSystem   = ECS_COMPONENT(System);
-    EcsPrefab   = ECS_COMPONENT(Prefab);
-    EcsRelation = ECS_COMPONENT(Relation);
-    EcsChildOf  = ECS_TAG(result);
-    EcsTimer    = ECS_COMPONENT(Timer);
-    ECS_SYSTEM(UpdateTimer, EcsTimer);
+    weePushScene(WEE_FIRST_SCENE);
 }
 
-void FrameCallback(void) {
+static char* RemoveExt(char* path) {
+    char *ret = malloc(strlen(path) + 1);
+    if (!ret)
+        return NULL;
+    strcpy(ret, path);
+    char *ext = strrchr(ret, '.');
+    if (ext)
+        *ext = '\0';
+    return ret;
+}
+
+#if defined(PP_WINDOWS)
+static FILETIME Win32GetLastWriteTime(char* path) {
+    FILETIME time;
+    WIN32_FILE_ATTRIBUTE_DATA data;
+
+    if (GetFileAttributesEx(path, GetFileExInfoStandard, &data))
+        time = data.ftLastWriteTime;
+
+    return time;
+}
+#endif
+
+static bool ShouldReloadLibrary(weeInternalScene *wis) {
+#if defined(PP_WINDOWS)
+    FILETIME newTime = Win32GetLastWriteTime(Args.path);
+    bool result = CompareFileTime(&newTime, &wis->writeTime);
+    if (result)
+        wis->writeTime = newTime;
+    return result;
+#else
+    struct stat attr;
+    bool result = !stat(wis->path, &attr) && wis->handleID != attr.st_ino;
+    if (result)
+        wis->handleID = attr.st_ino;
+    return result;
+#endif
+}
+
+static bool ReloadLibrary(weeInternalScene *wis) {
+    assert(wis);
+    if (!ShouldReloadLibrary(wis))
+        return true;
+    
+    if (wis->handle) {
+        if (wis->scene->unload)
+            wis->scene->unload(wis->context);
+        dlclose(wis->handle);
+    }
+    
+#if defined(PP_WINDOWS)
+    size_t newPathSize = strlen(wis->path) + 4;
+    char *newPath = malloc(sizeof(char) * newPathSize);
+    char *noExt = RemoveExt(wis->path);
+    sprintf(newPath, "%s.tmp.dll", noExt);
+    CopyFile(wis->path, newPath, 0);
+    if (!(wis->handle = dlopen(newPath, RTLD_NOW)))
+        goto BAIL;
+    free(newPath);
+    free(noExt);
+    if (!wis->handle)
+#else
+    if (!(wis->handle = dlopen(wis->path, RTLD_NOW)))
+#endif
+        goto BAIL;
+    if (!(wis->scene = dlsym(wis->handle, "state")))
+        goto BAIL;
+    if (!wis->context) {
+        if (!(wis->context = wis->scene->init()))
+            goto BAIL;
+    } else {
+        if (wis->scene->reload)
+            wis->scene->reload(wis->context);
+    }
+    return true;
+
+BAIL:
+    if (wis->handle)
+        dlclose(wis->handle);
+    wis->handle = NULL;
+#if defined(PP_WINDOWS)
+    memset(&writeTime, 0, sizeof(FILETIME));
+#else
+    wis->handleID = 0;
+#endif
+    return false;
+}
+
+static void FrameCallback(void) {
     const int width = sapp_width();
     const int height = sapp_height();
+    const float delta = (float)sapp_frame_duration() * 60.f;
+    
+    if (state.wis)
+        assert(ReloadLibrary(state.wis));
     
     sg_begin_pass(state.pass, &state.pass_action);
+    if (state.wis && state.wis->scene->frame)
+        state.wis->scene->frame(state.wis->context, delta);
     sg_end_pass();
     
     sg_begin_default_pass(&state.pass_action, width, height);
     sg_apply_pipeline(state.pip);
-
     sg_apply_bindings(&state.bind);
     sg_draw(0, 6, 1);
     sg_end_pass();
-    sg_commit();
     
-    state.input.mouse_delta = state.input.mouse_scroll_delta = Vec2Zero();
-    for (int i = 0; i < SAPP_MAX_KEYCODES; i++)
-        if (state.input.button_clicked[i])
-            state.input.button_clicked[i] = false;
-    for (int i = 0; i < SAPP_MAX_MOUSEBUTTONS; i++)
-        if (state.input.mouse_clicked[i])
-            state.input.mouse_clicked[i] = false;
+    sg_commit();
 }
 
-void EventCallback(const sapp_event* e) {
+#define ForwardEvent(...)                     \
+    if (state.wis && state.wis->scene->event) \
+        state.wis->scene->event(state.wis->context, &((weeEvent)__VA_ARGS__))
+
+static void EventCallback(const sapp_event* e) {
     switch (e->type) {
-        case SAPP_EVENTTYPE_KEY_DOWN:
-#if defined(DEBUG)
-            if (e->modifiers & SAPP_MODIFIER_SUPER && e->key_code == SAPP_KEYCODE_W)
-                sapp_quit();
-#endif
-            state.input.button_down[e->key_code] = true;
-            break;
         case SAPP_EVENTTYPE_KEY_UP:
-            state.input.button_down[e->key_code] = false;
-            state.input.button_clicked[e->key_code] = true;
-            break;
-        case SAPP_EVENTTYPE_MOUSE_DOWN:
-            state.input.mouse_down[e->mouse_button] = true;
+        case SAPP_EVENTTYPE_KEY_DOWN:
+            ForwardEvent({
+                .type = KEYBOARD_EVENT,
+                .Keyboard.isdown = e->type == SAPP_EVENTTYPE_KEY_DOWN,
+                .Keyboard.key = e->key_code
+            });
             break;
         case SAPP_EVENTTYPE_MOUSE_UP:
-            state.input.mouse_down[e->mouse_button] = false;
-            state.input.mouse_clicked[e->mouse_button] = true;
+        case SAPP_EVENTTYPE_MOUSE_DOWN:
+            ForwardEvent({
+                .type = MOUSE_BUTTON_EVENT,
+                .Mouse.isdown = e->type == SAPP_EVENTTYPE_KEY_DOWN,
+                .Mouse.button = e->mouse_button
+            });
             break;
         case SAPP_EVENTTYPE_MOUSE_MOVE:
-            state.input.last_mouse_pos = state.input.mouse_pos;
-            state.input.mouse_pos = (Vec2){e->mouse_x, e->mouse_y};
-            state.input.mouse_delta = (Vec2){e->mouse_dx, e->mouse_dy};
+            // TODO: Track if mouse in window first
+            ForwardEvent({
+                .type = MOUSE_MOVE_EVENT,
+                .Mouse.Position = {
+                    .x = e->mouse_x,
+                    .y = e->mouse_y,
+                    .dx = e->mouse_dx,
+                    .dy = e->mouse_dy
+                }
+            });
             break;
         case SAPP_EVENTTYPE_MOUSE_SCROLL:
-            state.input.mouse_scroll_delta = (Vec2){e->scroll_x, e->scroll_y};
+            ForwardEvent({
+                .type = MOUSE_SCROLL_EVENT,
+                .Mouse.Wheel.dx = e->scroll_x,
+                .Mouse.Wheel.dy = e->scroll_y
+            });
             break;
         case SAPP_EVENTTYPE_RESIZED:
-            state.desc.width = e->window_width;
-            state.desc.height = e->window_height;
+            ForwardEvent({
+                .type = WINDOW_RESIZED_EVENT,
+                .Window.Size.width = sapp_width(),
+                .Window.Size.height = sapp_height()
+            });
             break;
+        case SAPP_EVENTTYPE_FOCUSED:
+        case SAPP_EVENTTYPE_UNFOCUSED:
+            ForwardEvent({
+                .type = WINDOW_FOCUS_EVENT,
+                .Window.focused = e->type == SAPP_EVENTTYPE_FOCUSED
+            });
+            break;
+        // TODO: Wrap other event types
+        case SAPP_EVENTTYPE_INVALID:
+        case SAPP_EVENTTYPE_CHAR:
+        case SAPP_EVENTTYPE_MOUSE_ENTER:
+        case SAPP_EVENTTYPE_MOUSE_LEAVE:
+        case SAPP_EVENTTYPE_TOUCHES_BEGAN:
+        case SAPP_EVENTTYPE_TOUCHES_MOVED:
+        case SAPP_EVENTTYPE_TOUCHES_ENDED:
+        case SAPP_EVENTTYPE_TOUCHES_CANCELLED:
+        case SAPP_EVENTTYPE_ICONIFIED:
+        case SAPP_EVENTTYPE_RESTORED:
+        case SAPP_EVENTTYPE_SUSPENDED:
+        case SAPP_EVENTTYPE_RESUMED:
+        case SAPP_EVENTTYPE_QUIT_REQUESTED:
+        case SAPP_EVENTTYPE_CLIPBOARD_PASTED:
+        case SAPP_EVENTTYPE_FILES_DROPPED:
         default:
             break;
     }
 }
 
-void CleanupCallback(void) {
+typedef struct {
+    const char *name;
+    weeInternalScene *wis;
+} SceneBucket;
+
+static int CompareScene(const void *a, const void *b, void *udata) {
+    const SceneBucket *ua = a;
+    const SceneBucket *ub = b;
+    return strcmp(ua->name, ub->name);
+}
+
+static uint64_t HashScene(const void *item, uint64_t seed0, uint64_t seed1) {
+    const SceneBucket *b = item;
+    return hashmap_sip(b->name, strlen(b->name), seed0, seed1);
+}
+
+static void FreeScene(void *item) {
+    SceneBucket *b = item;
+    if (b->wis->scene->deinit)
+        b->wis->scene->deinit(b->wis->context);
+}
+
+void weeCreateScene(const char *name, const char *path) {
+    SceneBucket search = {.name = name};
+    SceneBucket *found = NULL;
+    if (!(found = hashmap_get(state.map, (void*)&search))) {
+        weeInternalScene *wis = malloc(sizeof(weeInternalScene));
+        wis->path = path;
+        wis->context = NULL;
+        wis->scene = NULL;
+        wis->handle = NULL;
+        assert(ReloadLibrary(wis));
+        search.wis = wis;
+        hashmap_set(state.map, (void*)&search);
+    }
+}
+
+void weePushScene(const char *name) {
+    SceneBucket search = {.name = name};
+    SceneBucket *found = hashmap_get(state.map, (void*)&search);
+    assert(found);
+    if (state.wis) {
+        found->wis->next = state.wis;
+        if (state.wis->scene->unload)
+            state.wis->scene->unload(state.wis->context);
+    }
+    state.wis = found->wis;
+    if (state.wis->scene->reload)
+        state.wis->scene->reload(state.wis->context);
+}
+
+void weePopScene(void) {
+    assert(state.wis);
+    state.wis = state.wis->next;
+}
+
+void weeDestroyScene(const char *name) {
+    SceneBucket search = {.name = name};
+    SceneBucket *found = NULL;
+    if ((found = hashmap_get(state.map, (void*)&search)))
+        hashmap_delete(state.map, (void*)found);
+}
+
+static void CleanupCallback(void) {
     state.running = false;
     sg_destroy_pass(state.pass);
     sg_destroy_pipeline(state.pip);
     sg_destroy_image(state.color);
     sg_destroy_image(state.depth);
+#define X(NAME) \
+    weeDestroyScene(NAME);
+WEE_SCENES
+#undef X
     sg_shutdown();
 }
 
-int main(int argc, const char *argv[]) {
-    state.configPath = ConfigPath();
-    if (DoesFileExist(state.configPath)) {
-        if (!LoadConfig(state.configPath)) {
-            fprintf(stderr, "[IMPORT CONFIG ERROR] Failed to import config from \"%s\"\n", state.configPath);
+sapp_desc sokol_main(int argc, char* argv[]) {
+#if defined(WEE_ENABLE_CONFIG)
+#if !defined(WEE_CONFIG_PATH)
+    char *configPath = JoinPath(UserPath(), DEFAULT_CONFIG_NAME);
+#else
+    char *configPath = WEE_CONFIG_PATH;
+    size_t configPathSize = strlen(configPath);
+    assert(configPath);
+    switch (configPath[0]) {
+        case '~':
+            break;
+        case '.':
+            if (configPathSize == 1) {
+                configPath = DEFAULT_CONFIG_NAME;
+                break;
+            }
+            switch (configPath[1]) {
+                case '.':
+                    break;
+                case PATH_SEPERATOR:
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+#endif
+    
+    if (DoesFileExist(configPath)) {
+        if (!LoadConfig(configPath)) {
+            fprintf(stderr, "[IMPORT CONFIG ERROR] Failed to import config from \"%s\"\n", configPath);
             fprintf(stderr, "errno (%d): \"%s\"\n", errno, strerror(errno));
             goto EXPORT_CONFIG;
         }
     } else {
     EXPORT_CONFIG:
-        if (!ExportConfig(state.configPath)) {
-            fprintf(stderr, "[EXPORT CONFIG ERROR] Failed to export config to \"%s\"\n", state.configPath);
+        if (!ExportConfig(configPath)) {
+            fprintf(stderr, "[EXPORT CONFIG ERROR] Failed to export config to \"%s\"\n", configPath);
             fprintf(stderr, "errno (%d): \"%s\"\n", errno, strerror(errno));
-            return EXIT_FAILURE;
+            abort();
         }
     }
+#endif
+#if defined(WEE_ENABLE_ARGUMENTS)
     if (argc > 1)
         if (!ParseArguments(argc, argv)) {
             fprintf(stderr, "[PARSE ARGUMENTS ERROR] Failed to parse arguments\n");
-            return EXIT_FAILURE;
+            abort();
         }
+#endif
+    
+    state.map = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
+    
+#if defined(WEE_MAC)
+#define DYLIB_EXT ".dylib"
+#elif defined(WEE_WINDOWS)
+#define DYLIB_EXT ".dll"
+#elif defined(WEE_LINUX)
+#define DYLIB_EXT ".so"
+#endif
+    
+#if !defined(WEE_DYLIB_PATH)
+#define WEE_DYLIB_PATH "./"
+#endif
+    
+#define X(NAME) \
+    weeCreateScene(NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
+WEE_SCENES
+#undef X
     
     state.desc.init_cb = InitCallback;
     state.desc.frame_cb = FrameCallback;
     state.desc.event_cb = EventCallback;
     state.desc.cleanup_cb = CleanupCallback;
-    sapp_run(&state.desc);
-    return 0;
+    return state.desc;
 }

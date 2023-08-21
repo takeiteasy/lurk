@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-#define wee
+typedef struct wee wee;
 #define weee wee
 #define weeee wee
 #define weeeee wee
@@ -108,6 +108,12 @@ extern "C" {
 #error "Unsupported operating system"
 #endif
 
+#if defined(PP_WINDOWS) && !defined(PP_NO_EXPORT)
+#define EXPORT __declspec(dllexport)
+#else
+#define EXPORT
+#endif
+
 #if !defined(__clang__) && (!defined(__GNUC__) || !defined(__GNUG__))
 #error This library relies on Clang/GCC extensions! Unsupported compiler!
 #endif
@@ -139,24 +145,18 @@ typedef enum bool { false = 0, true = !false } bool;
 #include <errno.h>
 #include <assert.h>
 
-#include "sokol_gfx.h"
-#include "sokol_app.h"
-#include "sokol_glue.h"
-#include "sokol_args.h"
-#include "sokol_time.h"
-#include "jim.h"
-#include "mjson.h"
-
 #if defined(WEE_POSIX)
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
-#define PATH_SEPERATOR "/"
+#include <dlfcn.h>
+//#define PATH_SEPERATOR "/"
 #else // Windows
 #include <io.h>
+#include <Windows.h>
 #define F_OK    0
 #define access _access
-#define PATH_SEPERATOR "\\"
+//#define PATH_SEPERATOR "\\"
 #endif
 
 #if !defined(MAX_PATH)
@@ -170,10 +170,12 @@ typedef enum bool { false = 0, true = !false } bool;
 #endif
 
 #if defined(WEE_POSIX)
-#define PATH_SEPERATOR "/"
+#define PATH_SEPERATOR '/'
 #else
-#define PATH_SEPERATOR "\\"
+#define PATH_SEPERATOR '\\'
 #endif
+
+#include "config.h"
 
 #if !defined(DEFAULT_CONFIG_NAME)
 #if defined(WEE_POSIX)
@@ -181,7 +183,7 @@ typedef enum bool { false = 0, true = !false } bool;
 #else
 #define DEFAULT_CONFIG_NAME "wee.json"
 #endif // WEE_POSX
-#endif // DEFAULT_CONFIG_NAME
+#endif
 
 #if !defined(DEFAULT_WINDOW_WIDTH)
 #define DEFAULT_WINDOW_WIDTH 640
@@ -192,7 +194,7 @@ typedef enum bool { false = 0, true = !false } bool;
 #endif
 
 #if !defined(DEFAULT_WINDOW_TITLE)
-#define DEFAULT_WINDOW_TITLE "WEE"
+#define DEFAULT_WINDOW_TITLE "weeeeeeeeeeeeeeee"
 #endif
 
 #define SETTINGS                                                                             \
@@ -254,11 +256,11 @@ X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, 
 
 //! MARK: Filesystem
 
-bool DoesFileExist(const char *path);
-bool DoesDirExist(const char *path);
-char* FormatString(const char *fmt, ...);
-char* LoadFile(const char *path, size_t *length);
-const char* JoinPath(const char *a, const char *b);
+EXPORT bool DoesFileExist(const char *path);
+EXPORT bool DoesDirExist(const char *path);
+EXPORT char* FormatString(const char *fmt, ...);
+EXPORT char* LoadFile(const char *path, size_t *length);
+EXPORT const char* JoinPath(const char *a, const char *b);
 
 //! MARK: Maths
 
@@ -325,9 +327,9 @@ const char* JoinPath(const char *a, const char *b);
     X(4, 4)
 #define X(W, H)                                                        \
     typedef float __MATRIX_T(W, H) __attribute__((matrix_type(W, H))); \
-    __MATRIX_T(W, H)                                                   \
+EXPORT __MATRIX_T(W, H)                                                   \
     __MATRIX_D(W, H, Identity)(void);                                  \
-    __MATRIX_T(W, H)                                                   \
+EXPORT __MATRIX_T(W, H)                                                   \
     __MATRIX_D(W, H, Zero)(void);
 MATRIX_TYPES
 #undef X
@@ -370,19 +372,19 @@ typedef union {
     X(4)
 #define X(L)                                                         \
     typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));    \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Zero)(void);                                          \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, New)(float x, ...);                                   \
-    void __VEC_D(L, Print)(__VEC_T(L) v);                            \
-    float __VEC_D(L, Sum)(__VEC_T(L) v);                             \
-    float __VEC_D(L, LengthSqr)(__VEC_T(L) v);                       \
-    float __VEC_D(L, Length)(__VEC_T(L) v);                          \
-    float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);             \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Normalize)(__VEC_T(L) v);                             \
-    float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2);         \
-    float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);            \
+EXPORT __VEC_T(L)                                                       \
+ __VEC_D(L, Zero)(void);                                          \
+EXPORT __VEC_T(L)                                                       \
+        __VEC_D(L, New)(float x, ...);                                   \
+EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                            \
+EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                             \
+EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);                       \
+EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                          \
+EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);             \
+EXPORT __VEC_T(L)                                                       \
+EXPORT __VEC_D(L, Normalize)(__VEC_T(L) v);                             \
+EXPORT float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2);         \
+EXPORT float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);            \
     __VEC_T(L)                                                       \
     __VEC_D(L, Clamp)(__VEC_T(L) v, __VEC_T(L) min, __VEC_T(L) max); \
     __VEC_T(L)                                                       \
@@ -546,74 +548,74 @@ VECTOR_TYPES
 #define MatrixIdentity Matrix4Identity
 
 #define Vector2Angle(v1, v2) Vec2Angle(Vec(v1), Vec(v2))
-float Vec2Angle(Vec2 v1, Vec2 v2);
+EXPORT float Vec2Angle(Vec2 v1, Vec2 v2);
 #define Vector2Rotate(v, angle) Vector2(Vec2Rotate(Vec(v), angle))
-Vec2 Vec2Rotate(Vec2 v, float angle);
+EXPORT Vec2 Vec2Rotate(Vec2 v, float angle);
 #define Vector2MoveTowards(v, target, maxDistance) Vector2(Vec2MoveTowards(Vec(v), Vec(target), maxDistance))
-Vec2 Vec2MoveTowards(Vec2 v, Vec2 target, float maxDistance);
+EXPORT Vec2 Vec2MoveTowards(Vec2 v, Vec2 target, float maxDistance);
 #define Vector2Reflect(v, normal) Vector2(Vec2Reflect(Vec(v), Vec(normal)))
-Vec2 Vec2Reflect(Vec2 v, Vec2 normal);
+EXPORT Vec2 Vec2Reflect(Vec2 v, Vec2 normal);
 
 #define Vector3Reflect(v, normal) Vector3(Vec3Reflect(Vec(v), Vec(normal)))
-Vec3 Vec3Reflect(Vec3 v, Vec3 normal);
+EXPORT Vec3 Vec3Reflect(Vec3 v, Vec3 normal);
 #define Vector3Cross(v, v2) Vector3(Vec3Cross(Vec(v), Vec(v2)))
-Vec3 Vec3Cross(Vec3 v1, Vec3 v2);
+EXPORT Vec3 Vec3Cross(Vec3 v1, Vec3 v2);
 #define Vector3Perpendicular(v) Vector3(Vec3Perpendicular(Vec(v)))
-Vec3 Vec3Perpendicular(Vec3 v);
+EXPORT Vec3 Vec3Perpendicular(Vec3 v);
 #define Vector3Angle(v1, v2) Vec3Angle(Vec(v1), Vec(v2))
-float Vec3Angle(Vec3 v1, Vec3 v2);
+EXPORT float Vec3Angle(Vec3 v1, Vec3 v2);
 #define Vector3RotateByQuaternion(v, q) Vector3(Vec3RotateByQuaternion(Vec(v), Vec(q)))
-Vec3 Vec3RotateByQuaternion(Vec3 v, Quat q);
+EXPORT Vec3 Vec3RotateByQuaternion(Vec3 v, Quat q);
 #define Vector3RotateByAxisAngle(v, axis, angle) Vector3(Vec3RotateByAxisAngle(Vec(v), Vec(axis), angle))
-Vec3 Vec3RotateByAxisAngle(Vec3 v, Vec3 axis, float angle);
+EXPORT Vec3 Vec3RotateByAxisAngle(Vec3 v, Vec3 axis, float angle);
 #define Vector3Refract(v, n, r) Vector3(Vec3Refract(Vec(v), Vec(n), r))
-Vec3 Vec3Refract(Vec3 v, Vec3 n, float r);
+EXPORT Vec3 Vec3Refract(Vec3 v, Vec3 n, float r);
 
-int FloatCmp(float a, float b);
-int Min(int a, int b);
-int Max(int a, int b);
-int Clamp(int n, int min, int max);
-float Degrees(float radians);
-float Radians(float degrees);
+EXPORT int FloatCmp(float a, float b);
+EXPORT int Min(int a, int b);
+EXPORT int Max(int a, int b);
+EXPORT int Clamp(int n, int min, int max);
+EXPORT float Degrees(float radians);
+EXPORT float Radians(float degrees);
 
 // Taken from `raylib` -- https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h
 // Linear Easing functions
-float EaseLinearNone(float t, float b, float c, float d);
-float EaseLinearIn(float t, float b, float c, float d);
-float EaseLinearOut(float t, float b, float c, float d);
-float EaseLinearInOut(float t, float b, float c, float d);
+EXPORT float EaseLinearNone(float t, float b, float c, float d);
+EXPORT float EaseLinearIn(float t, float b, float c, float d);
+EXPORT float EaseLinearOut(float t, float b, float c, float d);
+EXPORT float EaseLinearInOut(float t, float b, float c, float d);
 // Sine Easing functions
-float EaseSineIn(float t, float b, float c, float d);
-float EaseSineOut(float t, float b, float c, float d);
-float EaseSineInOut(float t, float b, float c, float d);
+EXPORT float EaseSineIn(float t, float b, float c, float d);
+EXPORT float EaseSineOut(float t, float b, float c, float d);
+EXPORT float EaseSineInOut(float t, float b, float c, float d);
 // Circular Easing functions
-float EaseCircIn(float t, float b, float c, float d);
-float EaseCircOut(float t, float b, float c, float d);
-float EaseCircInOut(float t, float b, float c, float d);
+EXPORT float EaseCircIn(float t, float b, float c, float d);
+EXPORT float EaseCircOut(float t, float b, float c, float d);
+EXPORT float EaseCircInOut(float t, float b, float c, float d);
 // Cubic Easing functions
-float EaseCubicIn(float t, float b, float c, float d);
-float EaseCubicOut(float t, float b, float c, float d);
-float EaseCubicInOut(float t, float b, float c, float d);
+EXPORT float EaseCubicIn(float t, float b, float c, float d);
+EXPORT float EaseCubicOut(float t, float b, float c, float d);
+EXPORT float EaseCubicInOut(float t, float b, float c, float d);
 // Quadratic Easing functions
-float EaseQuadIn(float t, float b, float c, float d);
-float EaseQuadOut(float t, float b, float c, float d);
-float EaseQuadInOut(float t, float b, float c, float d);
+EXPORT float EaseQuadIn(float t, float b, float c, float d);
+EXPORT float EaseQuadOut(float t, float b, float c, float d);
+EXPORT float EaseQuadInOut(float t, float b, float c, float d);
 // Exponential Easing functions
-float EaseExpoIn(float t, float b, float c, float d);
-float EaseExpoOut(float t, float b, float c, float d);
-float EaseExpoInOut(float t, float b, float c, float d);
+EXPORT float EaseExpoIn(float t, float b, float c, float d);
+EXPORT float EaseExpoOut(float t, float b, float c, float d);
+EXPORT float EaseExpoInOut(float t, float b, float c, float d);
 // Back Easing functions
-float EaseBackIn(float t, float b, float c, float d);
-float EaseBackOut(float t, float b, float c, float d);
-float EaseBackInOut(float t, float b, float c, float d);
+EXPORT float EaseBackIn(float t, float b, float c, float d);
+EXPORT float EaseBackOut(float t, float b, float c, float d);
+EXPORT float EaseBackInOut(float t, float b, float c, float d);
 // Bounce Easing functions
-float EaseBounceOut(float t, float b, float c, float d);
-float EaseBounceIn(float t, float b, float c, float d);
-float EaseBounceInOut(float t, float b, float c, float d);
+EXPORT float EaseBounceOut(float t, float b, float c, float d);
+EXPORT float EaseBounceIn(float t, float b, float c, float d);
+EXPORT float EaseBounceInOut(float t, float b, float c, float d);
 // Elastic Easing functions
-float EaseElasticIn(float t, float b, float c, float d);
-float EaseElasticOut(float t, float b, float c, float d);
-float EaseElasticInOut(float t, float b, float c, float d);
+EXPORT float EaseElasticIn(float t, float b, float c, float d);
+EXPORT float EaseElasticOut(float t, float b, float c, float d);
+EXPORT float EaseElasticInOut(float t, float b, float c, float d);
 
 // MARK: Random
 
@@ -623,14 +625,14 @@ typedef struct {
     unsigned int buffer[17];
 } Random;
 
-void InitRandom(Random *r, unsigned int s);
-unsigned int RandomBits(Random *r);
-float RandomFloat(Random *r);
-double RandomDouble(Random *r);
-int RandomInt(Random *r, int max);
-float RandomFloatRange(Random *r, float min, float max);
-double RandomDoubleRange(Random *r, double min, double max);
-int RandomIntRange(Random *r, int min, int max);
+EXPORT void InitRandom(Random *r, unsigned int s);
+EXPORT unsigned int RandomBits(Random *r);
+EXPORT float RandomFloat(Random *r);
+EXPORT double RandomDouble(Random *r);
+EXPORT int RandomInt(Random *r, int max);
+EXPORT float RandomFloatRange(Random *r, float min, float max);
+EXPORT double RandomDoubleRange(Random *r, double min, double max);
+EXPORT int RandomIntRange(Random *r, int min, int max);
 
 //! MARK: ECS
 
@@ -656,13 +658,13 @@ typedef union {
 #define EcsNil 0xFFFFFFFFull
 #define EcsNilEntity (Entity){.id = EcsNil}
 
-#define ECS_COMPONENT(T) EcsNewComponent(sizeof(T))
-#define ECS_TAG(WORLD) EcsNewComponent(0)
-#define ECS_QUERY(CB, UD, ...) EcsQuery(CB, UD, (Entity[]){__VA_ARGS__}, sizeof((Entity[]){__VA_ARGS__}) / sizeof(Entity));
+#define ECS_COMPONENT(WORLD, T) EcsNewComponent((WORLD), sizeof(T))
+#define ECS_TAG(WORLD) EcsNewComponent((WORLD), 0)
+#define ECS_QUERY(WORLD, CB, UD, ...) EcsQuery((WORLD), CB, UD, (Entity[]){__VA_ARGS__}, sizeof((Entity[]){__VA_ARGS__}) / sizeof(Entity));
 #define ECS_FIELD(QUERY, T, IDX) (T*)EcsQueryField(QUERY, IDX)
-#define ECS_SYSTEM(CB, ...) EcsNewSystem(CB, N_ARGS(__VA_ARGS__), __VA_ARGS__)
-#define ECS_PREFAB(...) EcsNewPrefab(N_ARGS(__VA_ARGS__), __VA_ARGS__)
-#define ECS_CHILDREN(PARENT, CB) (EcsRelations((PARENT), EcsChildof, (CB)))
+#define ECS_SYSTEM(WORLD, CB, ...) EcsNewSystem((WORLD), CB, N_ARGS(__VA_ARGS__), __VA_ARGS__)
+#define ECS_PREFAB(WORLD, ...) EcsNewPrefab((WORLD), N_ARGS(__VA_ARGS__), __VA_ARGS__)
+#define ECS_CHILDREN(WORLD, PARENT, CB) (EcsRelations((WORLD), (PARENT), EcsChildof, (CB)))
 #define ENTITY_ISA(E, TYPE) ((E).parts.flag == Ecs##TYPE##Type)
 
 typedef struct {
@@ -689,8 +691,6 @@ typedef struct {
     size_t sizeOfRecyclable;
     uint32_t nextAvailableId;
 } EcsWorld;
-
-extern EcsWorld world;
 
 typedef struct {
     void **componentData;
@@ -740,34 +740,37 @@ typedef enum {
 
 // MARK: ECS Functions
 
-Entity EcsNewEntity(void);
-Entity EcsNewComponent(size_t sizeOfComponent);
-Entity EcsNewSystem(SystemCb fn, size_t sizeOfComponents, ...);
-Entity EcsNewPrefab(size_t sizeOfComponents, ...);
-Entity EcsNewTimer(int interval, bool enable, TimerCb cb, void *userdata);
-void DestroyEntity(Entity entity);
+EXPORT void EcsNewWorld(EcsWorld *world);
+EXPORT void EcsDestroyWorld(EcsWorld *world);
 
-bool EcsIsValid(Entity entity);
-bool EcsHas(Entity entity, Entity component);
-void EcsAttach(Entity entity, Entity component);
-void EcsAssociate(Entity entity, Entity object, Entity relation);
-void EcsDetach(Entity entity, Entity component);
-void EcsDisassociate(Entity entity);
-bool EcsHasRelation(Entity entity, Entity object);
-bool EcsRelated(Entity entity, Entity relation);
-void* EcsGet(Entity entity, Entity component);
-void EcsSet(Entity entity, Entity component, const void *data);
-void EcsRelations(Entity parent, Entity relation, void *userdata, SystemCb cb);
+EXPORT Entity EcsNewEntity(EcsWorld *world);
+EXPORT Entity EcsNewComponent(EcsWorld *world, size_t sizeOfComponent);
+EXPORT Entity EcsNewSystem(EcsWorld *world, SystemCb fn, size_t sizeOfComponents, ...);
+EXPORT Entity EcsNewPrefab(EcsWorld *world, size_t sizeOfComponents, ...);
+EXPORT Entity EcsNewTimer(EcsWorld *world, int interval, bool enable, TimerCb cb, void *userdata);
+EXPORT void DestroyEntity(EcsWorld *world, Entity entity);
 
-void EcsEnableSystem(Entity system);
-void EcsDisableSystem(Entity system);
-void EcsEnableTimer(Entity timer);
-void EcsDisableTimer(Entity timer);
+EXPORT bool EcsIsValid(EcsWorld *world, Entity entity);
+EXPORT bool EcsHas(EcsWorld *world, Entity entity, Entity component);
+EXPORT void EcsAttach(EcsWorld *world, Entity entity, Entity component);
+EXPORT void EcsAssociate(EcsWorld *world, Entity entity, Entity object, Entity relation);
+EXPORT void EcsDetach(EcsWorld *world, Entity entity, Entity component);
+EXPORT void EcsDisassociate(EcsWorld *world, Entity entity);
+EXPORT bool EcsHasRelation(EcsWorld *world, Entity entity, Entity object);
+EXPORT bool EcsRelated(EcsWorld *world, Entity entity, Entity relation);
+EXPORT void* EcsGet(EcsWorld *world, Entity entity, Entity component);
+EXPORT void EcsSet(EcsWorld *world, Entity entity, Entity component, const void *data);
+EXPORT void EcsRelations(EcsWorld *world, Entity parent, Entity relation, void *userdata, SystemCb cb);
 
-void EcsRunSystem(Entity system);
-void EcsStep(void);
-void EcsQuery(SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents);
-void* EcsQueryField(Query *query, size_t index);
+EXPORT void EcsEnableSystem(EcsWorld *world, Entity system);
+EXPORT void EcsDisableSystem(EcsWorld *world, Entity system);
+EXPORT void EcsEnableTimer(EcsWorld *world, Entity timer);
+EXPORT void EcsDisableTimer(EcsWorld *world, Entity timer);
+
+EXPORT void EcsRunSystem(EcsWorld *world, Entity system);
+EXPORT void EcsStep(EcsWorld *world);
+EXPORT void EcsQuery(EcsWorld *world, SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents);
+EXPORT void* EcsQueryField(Query *query, size_t index);
 
 extern Entity EcsSystem;
 extern Entity EcsPrefab;
@@ -777,46 +780,107 @@ extern Entity EcsTimer;
 
 //! MARK: Image
 
-int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-int RGB(unsigned char r, unsigned char g, unsigned char b);
-int RGBA1(unsigned char c, unsigned char a);
-int RGB1(unsigned char c);
-unsigned char Rgba(int c);
-unsigned char rGba(int c);
-unsigned char rgBa(int c);
-unsigned char rgbA(int c);
-int rGBA(int c, unsigned char r);
-int RgBA(int c, unsigned char g);
-int RGbA(int c, unsigned char b);
-int RGBa(int c, unsigned char a);
+EXPORT int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+EXPORT int RGB(unsigned char r, unsigned char g, unsigned char b);
+EXPORT int RGBA1(unsigned char c, unsigned char a);
+EXPORT int RGB1(unsigned char c);
+EXPORT unsigned char Rgba(int c);
+EXPORT unsigned char rGba(int c);
+EXPORT unsigned char rgBa(int c);
+EXPORT unsigned char rgbA(int c);
+EXPORT int rGBA(int c, unsigned char r);
+EXPORT int RgBA(int c, unsigned char g);
+EXPORT int RGbA(int c, unsigned char b);
+EXPORT int RGBa(int c, unsigned char a);
 
 typedef struct {
     int *buf, w, h;
 } Image;
 
-bool InitImage(Image *img, unsigned int w, unsigned int h);
-void DestroyImage(Image *img);
+EXPORT bool InitImage(Image *img, unsigned int w, unsigned int h);
+EXPORT void DestroyImage(Image *img);
 
-void FillImage(Image *img, int col);
-void FloodImage(Image *img, int x, int y, int col);
-void ClearImage(Image *img);
-void BSet(Image *img, int x, int y, int col);
-void PSet(Image *img, int x, int y, int col);
-int PGet(Image *img, int x, int y);
-bool PasteImage(Image *dst, Image *src, int x, int y);
-bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
-bool CopyImage(Image *a, Image *b);
-void PassthruImage(Image *img, int(*fn)(int x, int y, int col));
-bool ScaleImage(Image *a, int nw, int nh, Image *img);
-bool RotateImage(Image *a, float angle, Image *b);
-void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col);
-void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill);
-void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill);
-void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, int col, bool fill);
+EXPORT void FillImage(Image *img, int col);
+EXPORT void FloodImage(Image *img, int x, int y, int col);
+EXPORT void ClearImage(Image *img);
+EXPORT void BSet(Image *img, int x, int y, int col);
+EXPORT void PSet(Image *img, int x, int y, int col);
+EXPORT int PGet(Image *img, int x, int y);
+EXPORT bool PasteImage(Image *dst, Image *src, int x, int y);
+EXPORT bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
+EXPORT bool CopyImage(Image *a, Image *b);
+EXPORT void PassthruImage(Image *img, int(*fn)(int x, int y, int col));
+EXPORT bool ScaleImage(Image *a, int nw, int nh, Image *img);
+EXPORT bool RotateImage(Image *a, float angle, Image *b);
+EXPORT void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col);
+EXPORT void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill);
+EXPORT void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill);
+EXPORT void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, int col, bool fill);
 
-bool LoadImage(Image *out, const char *path);
-bool LoadImageMemory(Image *out, const void *data, size_t length);
-bool SaveImage(Image *img, const char *path);
+EXPORT bool LoadImage(Image *out, const char *path);
+EXPORT bool LoadImageMemory(Image *out, const void *data, size_t length);
+EXPORT bool SaveImage(Image *img, const char *path);
+
+// MARK: Window functions
+
+EXPORT int weeWindowWidth(void);
+EXPORT int weeWindowHeight(void);
+EXPORT int weeIsWindowFullscreen(void);
+EXPORT void weeToggleFullscreen(void);
+EXPORT int weeIsCursorVisible(void);
+EXPORT void weeToggleCursorVisible(void);
+EXPORT int weeIsCursorLocked(void);
+EXPORT void weeToggleCursorLock(void);
+
+typedef enum {
+    KEYBOARD_EVENT,
+    MOUSE_BUTTON_EVENT,
+    MOUSE_MOVE_EVENT,
+    MOUSE_SCROLL_EVENT,
+    WINDOW_RESIZED_EVENT,
+    WINDOW_FOCUS_EVENT,
+    WINDOW_CLOSED_EVENT
+} weeEventType;
+
+typedef struct {
+    struct {
+        int button;
+        bool isdown;
+        struct {
+            int x, y;
+            float dx, dy;
+        } Position;
+        struct {
+            float dx, dy;
+        } Wheel;
+    } Mouse;
+    struct {
+        int key;
+        bool isdown;
+    } Keyboard;
+    int modifier;
+    struct {
+        bool focused;
+        struct {
+            int width, height;
+        } Size;
+    } Window;
+    weeEventType type;
+} weeEvent;
+
+typedef struct {
+    weeeeeeeeee*(*init)(void);
+    void(*deinit)(weeeeeeee*);
+    void(*reload)(weeeeeeee*);
+    void(*unload)(weeeeeeee*);
+    bool(*event)(weeeeeeeee*, weeEvent*);
+    bool(*frame)(weeeeeeeee*, float);
+} weeScene;
+
+EXPORT void weeCreateScene(const char *name, const char *path);
+EXPORT void weePushScene(const char *name);
+EXPORT void weePopScene(void);
+EXPORT void weeDestroyScene(const char *name);
 
 #if defined(__cplusplus)
 }
