@@ -58,9 +58,13 @@ const char* JoinPath(const char *a, const char *b) {
     memset(buf, 0, MAX_PATH * sizeof(char));
     strcat(buf, a);
     if (b) {
-        if (a[strlen(a)-1] != PATH_SEPERATOR && b[0] != PATH_SEPERATOR)
+        if (a[strlen(a)-1] != PATH_SEPERATOR && b[0] != PATH_SEPERATOR) {
             strcat(buf, PathSeperator());
-        strcat(buf, b);
+            strcat(buf, b);
+        } else if (a[strlen(a)-1] == PATH_SEPERATOR && b[0] == PATH_SEPERATOR)
+            strcat(buf, b + 1);
+        else
+            strcat(buf, b);
     } else
         strcat(buf, PathSeperator());
     return buf;

@@ -6,7 +6,6 @@
 //
 
 #include "wee.h"
-#include "sokol_time.h"
 
 #define SAFE_FREE(X)    \
     do                  \
@@ -80,7 +79,6 @@ Entity EcsSystem   = EcsNilEntity;
 Entity EcsPrefab   = EcsNilEntity;
 Entity EcsRelation = EcsNilEntity;
 Entity EcsChildOf  = EcsNilEntity;
-Entity EcsTimer    = EcsNilEntity;
 
 static EcsSparse* NewSparse(void) {
     EcsSparse *result = malloc(sizeof(EcsSparse));
@@ -182,24 +180,12 @@ static void* StorageGet(EcsStorage *storage, Entity e) {
     return StorageAt(storage, SparseAt(storage->sparse, e));
 }
 
-static void UpdateTimer(Query *query) {
-    Timer *timer = ECS_FIELD(query, Timer, 0);
-    if (!timer->enabled)
-        return;
-    if (stm_ms(stm_since(timer->start)) > timer->interval) {
-//        timer->cb(timer->userdata);
-        timer->start = stm_now();
-    }
-}
-
 void EcsNewWorld(EcsWorld *world) {
     world->nextAvailableId = EcsNil;
     EcsSystem   = ECS_COMPONENT(world, System);
     EcsPrefab   = ECS_COMPONENT(world, Prefab);
     EcsRelation = ECS_COMPONENT(world, Relation);
     EcsChildOf  = ECS_TAG(world);
-    EcsTimer    = ECS_COMPONENT(world, Timer);
-    ECS_SYSTEM(world, UpdateTimer, EcsTimer);
 }
 
 void EcsDestroyWorld(EcsWorld *world) {
@@ -302,17 +288,6 @@ Entity EcsNewPrefab(EcsWorld *world, size_t sizeOfComponents, ...) {
     return e;
 }
 
-Entity EcsNewTimer(EcsWorld *world, int interval, bool enable, TimerCb cb, void *userdata) {
-    Entity e = EcsNewEntityType(world, EcsTimerType);
-    EcsAttach(world, e, EcsTimer);
-    Timer *timer = EcsGet(world, e, EcsTimer);
-    timer->start = stm_now();
-    timer->enabled = enable;
-    timer->interval = Max(interval, 1);
-    timer->cb = cb;
-    timer->userdata = userdata;
-    return e;
-}
 #define DEL_TYPES \
     X(System, 0)  \
     X(Prefab, 1)
@@ -343,7 +318,6 @@ void EcsAttach(EcsWorld *world, Entity entity, Entity component) {
     switch (component.parts.flag) {
         case EcsRelationType: // Use EcsRelation()
         case EcsSystemType: // NOTE: potentially could be used for some sort of event system
-        case EcsTimerType:
             ASSERT(false);
         case EcsPrefabType: {
             Prefab *c = EcsGet(world, component, EcsPrefab);
@@ -478,21 +452,6 @@ void EcsDisableSystem(EcsWorld *world, Entity system) {
     ECS_ASSERT(ENTITY_ISA(system, System), Entity, system);
     System *s = EcsGet(world, system, EcsSystem);
     s->enabled = false;
-}
-
-void EcsEnableTimer(EcsWorld *world, Entity timer) {
-    ECS_ASSERT(EcsIsValid(world, timer), Entity, timer);
-    ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
-    Timer *t = EcsGet(world, timer, EcsTimer);
-    t->enabled = true;
-    t->start = stm_now();
-}
-
-void EcsDisableTimer(EcsWorld *world, Entity timer) {
-    ECS_ASSERT(EcsIsValid(world, timer), Entity, timer);
-    ECS_ASSERT(ENTITY_ISA(timer, Timer), Entity, timer);
-    Timer *t = EcsGet(world, timer, EcsTimer);
-    t->enabled = false;
 }
 
 void EcsRunSystem(EcsWorld *world, Entity e) {

@@ -36,7 +36,6 @@ targets:
         - sdk: Metal.framework
         - sdk: MetalKit.framework
         - sdk: Quartz.framework
-        - sdk: AudioToolbox.framework
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]
@@ -45,14 +44,18 @@ targets:
     platform: macOS
     sources:
         - path: game/menu.c
+        - path: wee.h
+        - path: src/
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: [-fenable-matrix]
+        OTHER_CFLAGS: [-fenable-matrix, -DWEE_STATE]
   game:
     type: library.dynamic
     platform: macOS
     sources:
         - path: game/game.c
+        - path: wee.h
+        - path: src/
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: [-fenable-matrix]
+        OTHER_CFLAGS: [-fenable-matrix, -DWEE_STATE]

@@ -44,21 +44,23 @@ SHADER_OUT=$@
 shaders: $(SHADER_OUTS)
 	mv assets/*.h build/
 
-SCENES=$(wildcard game/*.c)
-
-SCENES_OUT=$(patsubst game/%.c,build/%.$(LIB_EXT), $(SCENES))
+SCENES_PATH=game
+SCENES=$(wildcard $(SCENES_PATH)/*.c)
+SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,build/%.$(LIB_EXT), $(SCENES))
 
 .SECONDEXPANSION:
-SCENE=$(patsubst build/%.$(LIB_EXT),game/%.c,$@)
+SCENE=$(patsubst build/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
 SCENE_OUT=$@
 %.$(LIB_EXT): $(SCENES)
-	$(CC) -shared -fpic $(INCLUDE) -fenable-matrix $(SOKOL_FLAGS) $(SCENE) -o $(SCENE_OUT)
+	$(CC) -shared -fpic $(INCLUDE) -DWEE_STATE -fenable-matrix $(SCENE) $(SOURCES) -o $(SCENE_OUT)
 
 scenes: $(SCENES_OUT)
 
 wee:
 	$(CC) $(INCLUDE) -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 
-all: app shaders
+all: shaders scenes wee
+
+default: scenes
 
 .PHONY: all wee shaders scenes

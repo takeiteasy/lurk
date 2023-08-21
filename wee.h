@@ -160,6 +160,15 @@ typedef enum bool { false = 0, true = !false } bool;
 #define chdir _chdir
 #endif
 
+#include "sokol_gfx.h"
+#include "sokol_app.h"
+#include "sokol_glue.h"
+#include "sokol_args.h"
+#include "sokol_time.h"
+#include "jim.h"
+#include "mjson.h"
+#include "hashmap.h"
+
 #if !defined(MAX_PATH)
 #if defined(WEE_MAC)
 #define MAX_PATH 255
@@ -724,23 +733,12 @@ typedef struct {
            relation;
 } Relation;
 
-typedef void(*TimerCb)(void*);
-
-typedef struct {
-    uint64_t start;
-    int interval;
-    TimerCb cb;
-    void *userdata;
-    bool enabled;
-} Timer;
-
 typedef enum {
     EcsEntityType    = 0,
     EcsComponentType = (1 << 0),
     EcsSystemType    = (1 << 1),
     EcsPrefabType    = (1 << 2),
-    EcsRelationType  = (1 << 3),
-    EcsTimerType     = (1 << 4)
+    EcsRelationType  = (1 << 3)
 } EntityFlag;
 
 // MARK: ECS Functions
@@ -752,7 +750,6 @@ EXPORT Entity EcsNewEntity(EcsWorld *world);
 EXPORT Entity EcsNewComponent(EcsWorld *world, size_t sizeOfComponent);
 EXPORT Entity EcsNewSystem(EcsWorld *world, SystemCb fn, size_t sizeOfComponents, ...);
 EXPORT Entity EcsNewPrefab(EcsWorld *world, size_t sizeOfComponents, ...);
-EXPORT Entity EcsNewTimer(EcsWorld *world, int interval, bool enable, TimerCb cb, void *userdata);
 EXPORT void DestroyEntity(EcsWorld *world, Entity entity);
 
 EXPORT bool EcsIsValid(EcsWorld *world, Entity entity);
@@ -826,66 +823,52 @@ EXPORT bool LoadImage(Image *out, const char *path);
 EXPORT bool LoadImageMemory(Image *out, const void *data, size_t length);
 EXPORT bool SaveImage(Image *img, const char *path);
 
-// MARK: Window functions
+typedef struct weeScene weeScene;
 
-EXPORT int weeWindowWidth(void);
-EXPORT int weeWindowHeight(void);
-EXPORT int weeIsWindowFullscreen(void);
-EXPORT void weeToggleFullscreen(void);
-EXPORT int weeIsCursorVisible(void);
-EXPORT void weeToggleCursorVisible(void);
-EXPORT int weeIsCursorLocked(void);
-EXPORT void weeToggleCursorLock(void);
-
-typedef enum {
-    KEYBOARD_EVENT,
-    MOUSE_BUTTON_EVENT,
-    MOUSE_MOVE_EVENT,
-    MOUSE_SCROLL_EVENT,
-    WINDOW_RESIZED_EVENT,
-    WINDOW_FOCUS_EVENT,
-    WINDOW_CLOSED_EVENT
-} weeEventType;
+typedef struct wis {
+    const char *path;
+    void *handle;
+#if defined(WEE_POSIX)
+    ino_t handleID;
+#else
+    FILETIME writeTime;
+#endif
+    weeeeeeeeeeeeeeeeeeeeeeeeeeeee *context;
+    weeScene *scene;
+    struct wis *next;
+} weeInternalScene;
 
 typedef struct {
-    struct {
-        int button;
-        bool isdown;
-        struct {
-            int x, y;
-            float dx, dy;
-        } Position;
-        struct {
-            float dx, dy;
-        } Wheel;
-    } Mouse;
-    struct {
-        int key;
-        bool isdown;
-    } Keyboard;
-    int modifier;
-    struct {
-        bool focused;
-        struct {
-            int width, height;
-        } Size;
-    } Window;
-    weeEventType type;
-} weeEvent;
+    weeInternalScene *wis;
+    struct hashmap *map;
+    
+    bool running;
+    sapp_desc desc;
+    
+    sg_pass_action pass_action;
+    sg_pass pass;
+    sg_pipeline pip;
+    sg_bindings bind;
+    sg_image color, depth;
+} weeState;
 
-typedef struct {
-    weeeeeeeeee*(*init)(void);
-    void(*deinit)(weeeeeeee*);
-    void(*reload)(weeeeeeee*);
-    void(*unload)(weeeeeeee*);
-    bool(*event)(weeeeeeeee*, weeEvent*);
-    bool(*frame)(weeeeeeeee*, float);
-} weeScene;
+struct weeScene {
+    weeeeeeeeee*(*init)(weeState*);
+    void(*deinit)(weeState*, weeeeeeee*);
+    void(*reload)(weeState*, weeeeeeee*);
+    void(*background)(weeState*, weeee*);
+    void(*unload)(weeState*, weeeeeeee*);
+    void(*event)(weeState*, weeeeeeeee*, const sapp_event*);
+    bool(*frame)(weeState*, weeeeeeeee*, float);
+};
 
-EXPORT void weeCreateScene(const char *name, const char *path);
-EXPORT void weePushScene(const char *name);
-EXPORT void weePopScene(void);
-EXPORT void weeDestroyScene(const char *name);
+EXPORT void weeInit(weeState *state);
+EXPORT void weeCreateScene(weeState *state, const char *name, const char *path);
+EXPORT void weePushScene(weeState *state,const char *name);
+EXPORT void weePopScene(weeState *state);
+EXPORT void weeDestroyScene(weeState *state,const char *name);
+
+extern weeState state;
 
 #if defined(__cplusplus)
 }
