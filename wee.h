@@ -150,13 +150,14 @@ typedef enum bool { false = 0, true = !false } bool;
 #include <sys/types.h>
 #include <pwd.h>
 #include <dlfcn.h>
-//#define PATH_SEPERATOR "/"
 #else // Windows
 #include <io.h>
 #include <Windows.h>
+#include <dirent.h>
 #define F_OK    0
 #define access _access
-//#define PATH_SEPERATOR "\\"
+#define getcwd _getcwd
+#define chdir _chdir
 #endif
 
 #if !defined(MAX_PATH)
@@ -261,6 +262,10 @@ EXPORT bool DoesDirExist(const char *path);
 EXPORT char* FormatString(const char *fmt, ...);
 EXPORT char* LoadFile(const char *path, size_t *length);
 EXPORT const char* JoinPath(const char *a, const char *b);
+EXPORT const char* UserPath(void);
+EXPORT const char* CurrentDirectory(void);
+EXPORT bool SetCurrentDirectory(const char *path);
+EXPORT const char* ResolvePath(const char *path);
 
 //! MARK: Maths
 

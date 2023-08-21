@@ -66,24 +66,6 @@ static struct {
 
 // MARK: Config/Argument parsing function
 
-static const char* UserPath(void) {
-    const char *result;
-    if (!(result = getenv("HOME"))) {
-#if defined(WEE_POSIX)
-        result = getpwuid(getuid())->pw_dir;
-#else
-        WCHAR profilePath[MAX_PATH];
-        if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, 0, profilePath))) {
-            static char buffer[MAX_PATH];
-            if (wcstombs(buffer, profilePath, sizeof(buffer)) == MAX_PATH)
-                buffer[MAX_PATH-1] = '\0';
-            return buffer;
-        }
-#endif
-    }
-    return result;
-}
-
 static void Usage(const char *name) {
     printf("  usage: ./%s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
@@ -373,7 +355,7 @@ static bool ReloadLibrary(weeInternalScene *wis) {
     if (!(wis->handle = dlopen(wis->path, RTLD_NOW)))
 #endif
         goto BAIL;
-    if (!(wis->scene = dlsym(wis->handle, "state")))
+    if (!(wis->scene = dlsym(wis->handle, "scene")))
         goto BAIL;
     if (!wis->context) {
         if (!(wis->context = wis->scene->init()))
@@ -573,29 +555,9 @@ WEE_SCENES
 sapp_desc sokol_main(int argc, char* argv[]) {
 #if defined(WEE_ENABLE_CONFIG)
 #if !defined(WEE_CONFIG_PATH)
-    char *configPath = JoinPath(UserPath(), DEFAULT_CONFIG_NAME);
+    const char *configPath = JoinPath(UserPath(), DEFAULT_CONFIG_NAME);
 #else
-    char *configPath = WEE_CONFIG_PATH;
-    size_t configPathSize = strlen(configPath);
-    assert(configPath);
-    switch (configPath[0]) {
-        case '~':
-            break;
-        case '.':
-            if (configPathSize == 1) {
-                configPath = DEFAULT_CONFIG_NAME;
-                break;
-            }
-            switch (configPath[1]) {
-                case '.':
-                    break;
-                case PATH_SEPERATOR:
-                    break;
-            }
-            break;
-        default:
-            break;
-    }
+    const char *configPath = ResolvePath(WEE_CONFIG_PATH);
 #endif
     
     if (DoesFileExist(configPath)) {
