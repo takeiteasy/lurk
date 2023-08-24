@@ -17,7 +17,7 @@
         }               \
     } while (0)
 
-#if defined(DEBUG)
+#if defined(WEE_DEBUG)
 #define ASSERT(X) \
     do {                                                                                       \
         if (!(X)) {                                                                            \

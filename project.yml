@@ -38,7 +38,7 @@ targets:
         - sdk: Quartz.framework
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -DWEE_DEBUG, -fobjc-arc, -fenable-matrix]
   menu:
     type: library.dynamic
     platform: macOS

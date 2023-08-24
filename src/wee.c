@@ -39,7 +39,7 @@ typedef struct {
     weeInternalScene *wis;
 } SceneBucket;
 
-#if defined(PP_WINDOWS)
+#if defined(WEE_WINDOWS)
 static char* RemoveExt(char* path) {
     char *ret = malloc(strlen(path) + 1);
     if (!ret)
@@ -63,7 +63,7 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 #endif
 
 static bool ShouldReloadLibrary(weeInternalScene *wis) {
-#if defined(PP_WINDOWS)
+#if defined(WEE_WINDOWS)
     FILETIME newTime = Win32GetLastWriteTime(Args.path);
     bool result = CompareFileTime(&newTime, &wis->writeTime);
     if (result)
@@ -89,7 +89,7 @@ static bool ReloadLibrary(weeInternalScene *wis) {
         dlclose(wis->handle);
     }
     
-#if defined(PP_WINDOWS)
+#if defined(WEE_WINDOWS)
     size_t newPathSize = strlen(wis->path) + 4;
     char *newPath = malloc(sizeof(char) * newPathSize);
     char *noExt = RemoveExt(wis->path);
@@ -119,7 +119,7 @@ BAIL:
     if (wis->handle)
         dlclose(wis->handle);
     wis->handle = NULL;
-#if defined(PP_WINDOWS)
+#if defined(WEE_WINDOWS)
     memset(&writeTime, 0, sizeof(FILETIME));
 #else
     wis->handleID = 0;
@@ -241,7 +241,6 @@ static void InitCallback(void) {
         .context = sapp_sgcontext()
     };
     sg_setup(&desc);
-    stm_setup();
     
     sg_image_desc img_desc = {
         .width = sapp_width(),
@@ -312,9 +311,11 @@ static void FrameCallback(void) {
     const int width = sapp_width();
     const int height = sapp_height();
     const float delta = (float)sapp_frame_duration() * 60.f;
-    
+   
+#if defined(WEE_DEBUG)
     if (state.wis)
         assert(ReloadLibrary(state.wis));
+#endif
     
     sg_begin_pass(state.pass, &state.pass_action);
     if (state.wis && state.wis->scene->frame)
@@ -407,7 +408,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 #endif
     
 #if !defined(WEE_DYLIB_PATH)
-#define WEE_DYLIB_PATH "./"
+#define WEE_DYLIB_PATH ResolvePath("./");
 #endif
     
 #define X(NAME) \

@@ -183,6 +183,7 @@ const char* ResolvePath(const char *path) {
                     }
                     break;
                 case PATH_SEPERATOR:
+                    return pathSize == 2 ? CurrentDirectory() : JoinPath(CurrentDirectory(), path + 2);
                 default:
                     break;
             }

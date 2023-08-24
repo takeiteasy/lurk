@@ -56,11 +56,14 @@ SCENE_OUT=$@
 
 scenes: $(SCENES_OUT)
 
-wee:
-	$(CC) $(INCLUDE) -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+debug:
+	$(CC) $(INCLUDE) -g -DWEE_DEBUG -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 
-all: shaders scenes wee
+release:
+		$(CC) $(INCLUDE) -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+
+all: shaders scenes debug
 
 default: scenes
 
-.PHONY: all wee shaders scenes
+.PHONY: all debug release shaders scenes

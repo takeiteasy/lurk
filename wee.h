@@ -1,5 +1,5 @@
 /* wee.h -- https://github.com/takeiteasy/wee
- 
+
  The MIT License (MIT)
  Copyright (c) 2022 George Watson
  Permission is hereby granted, free of charge, to any person
@@ -115,7 +115,7 @@ typedef struct wee wee;
 #endif
 
 #if !defined(__clang__) && (!defined(__GNUC__) || !defined(__GNUG__))
-#error This library relies on Clang/GCC extensions! Unsupported compiler!
+#error Unsupported compiler! This library relies on Clang/GCC extensions
 #endif
 
 #if defined(_MSC_VER) && _MSC_VER < 1800
@@ -125,7 +125,10 @@ typedef struct wee wee;
 #define false 0
 #else
 #if defined(__STDC__) && __STDC_VERSION__ < 199901L
-typedef enum bool { false = 0, true = !false } bool;
+typedef enum bool {
+    false = 0,
+    true = !false
+} bool;
 #else
 #include <stdbool.h>
 #endif
@@ -154,7 +157,7 @@ typedef enum bool { false = 0, true = !false } bool;
 #include <io.h>
 #include <Windows.h>
 #include <dirent.h>
-#define F_OK    0
+#define F_OK 0
 #define access _access
 #define getcwd _getcwd
 #define chdir _chdir
@@ -207,19 +210,27 @@ typedef enum bool { false = 0, true = !false } bool;
 #define DEFAULT_WINDOW_TITLE "weeeeeeeeeeeeeeee"
 #endif
 
-#define SETTINGS                                                                             \
-X("width", integer, width, DEFAULT_WINDOW_WIDTH, "Set window width")                         \
-X("height", integer, height, DEFAULT_WINDOW_HEIGHT, "Set window height")                     \
-X("sampleCount", integer, sample_count, 4, "Set the MSAA sample count of the   framebuffer") \
-X("swapInterval", integer, swap_interval, 1, "Set the preferred swap interval")              \
-X("highDPI", boolean, high_dpi, true, "Enable high-dpi compatability")                       \
-X("fullscreen", boolean, fullscreen, false, "Set fullscreen")                                \
-X("alpha", boolean, alpha, false, "Enable/disable alpha channel on framebuffers")            \
-X("clipboard", boolean, enable_clipboard, false, "Enable clipboard support")                 \
-X("clipboardSize", integer, clipboard_size, 1024, "Size of clipboard buffer (in bytes)")     \
-X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
-X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
-X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
+#define SETTINGS                                                                                 \
+    X("width", integer, width, DEFAULT_WINDOW_WIDTH, "Set window width")                         \
+    X("height", integer, height, DEFAULT_WINDOW_HEIGHT, "Set window height")                     \
+    X("sampleCount", integer, sample_count, 4, "Set the MSAA sample count of the   framebuffer") \
+    X("swapInterval", integer, swap_interval, 1, "Set the preferred swap interval")              \
+    X("highDPI", boolean, high_dpi, true, "Enable high-dpi compatability")                       \
+    X("fullscreen", boolean, fullscreen, false, "Set fullscreen")                                \
+    X("alpha", boolean, alpha, false, "Enable/disable alpha channel on framebuffers")            \
+    X("clipboard", boolean, enable_clipboard, false, "Enable clipboard support")                 \
+    X("clipboardSize", integer, clipboard_size, 1024, "Size of clipboard buffer (in bytes)")     \
+    X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
+    X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
+    X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
+
+#define weak __block
+
+#define defer_merge(a, b) a##b
+#define defer_varname(a) defer_merge(defer_scopevar_, a)
+#define defer __attribute__((unused)) __attribute__((__cleanup__(defer_cleanup))) void (^defer_varname(__COUNTER__))(void) = ^
+
+#define dtor(destructor) __attribute__((__cleanup__(destructor)))
 
 // Taken from `map-macro` -- https://github.com/swansontec/map-macro
 #define EVAL0(...) __VA_ARGS__
@@ -227,7 +238,7 @@ X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, 
 #define EVAL2(...) EVAL1(EVAL1(EVAL1(__VA_ARGS__)))
 #define EVAL3(...) EVAL2(EVAL2(EVAL2(__VA_ARGS__)))
 #define EVAL4(...) EVAL3(EVAL3(EVAL3(__VA_ARGS__)))
-#define EVAL(...)  EVAL4(EVAL4(EVAL4(__VA_ARGS__)))
+#define EVAL(...) EVAL4(EVAL4(EVAL4(__VA_ARGS__)))
 
 #define MAP_END(...)
 #define MAP_OUT
@@ -238,13 +249,13 @@ X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, 
 #define MAP_GET_END(...) MAP_GET_END1
 #define MAP_NEXT0(test, next, ...) next MAP_OUT
 #define MAP_NEXT1(test, next) MAP_NEXT0(test, next, 0)
-#define MAP_NEXT(test, next)  MAP_NEXT1(MAP_GET_END test, next)
+#define MAP_NEXT(test, next) MAP_NEXT1(MAP_GET_END test, next)
 
 #define MAP0(f, x, peek, ...) f(x) MAP_NEXT(peek, MAP1)(f, peek, __VA_ARGS__)
 #define MAP1(f, x, peek, ...) f(x) MAP_NEXT(peek, MAP0)(f, peek, __VA_ARGS__)
 
 #define MAP_LIST_NEXT1(test, next) MAP_NEXT0(test, MAP_COMMA next, 0)
-#define MAP_LIST_NEXT(test, next)  MAP_LIST_NEXT1(MAP_GET_END test, next)
+#define MAP_LIST_NEXT(test, next) MAP_LIST_NEXT1(MAP_GET_END test, next)
 
 #define MAP_LIST0(f, x, peek, ...) f(x) MAP_LIST_NEXT(peek, MAP_LIST1)(f, peek, __VA_ARGS__)
 #define MAP_LIST1(f, x, peek, ...) f(x) MAP_LIST_NEXT(peek, MAP_LIST0)(f, peek, __VA_ARGS__)
@@ -261,20 +272,20 @@ X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, 
 // Taken from: https://gist.github.com/61131/7a22ac46062ee292c2c8bd6d883d28de
 #define N_ARGS(...) _NARG_(__VA_ARGS__, _RSEQ())
 #define _NARG_(...) _SEQ(__VA_ARGS__)
-#define _SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,_51,_52,_53,_54,_55,_56,_57,_58,_59,_60,_61,_62,_63,_64,_65,_66,_67,_68,_69,_70,_71,_72,_73,_74,_75,_76,_77,_78,_79,_80,_81,_82,_83,_84,_85,_86,_87,_88,_89,_90,_91,_92,_93,_94,_95,_96,_97,_98,_99,_100,_101,_102,_103,_104,_105,_106,_107,_108,_109,_110,_111,_112,_113,_114,_115,_116,_117,_118,_119,_120,_121,_122,_123,_124,_125,_126,_127,N,...) N
-#define _RSEQ() 127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
+#define _SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32, _33, _34, _35, _36, _37, _38, _39, _40, _41, _42, _43, _44, _45, _46, _47, _48, _49, _50, _51, _52, _53, _54, _55, _56, _57, _58, _59, _60, _61, _62, _63, _64, _65, _66, _67, _68, _69, _70, _71, _72, _73, _74, _75, _76, _77, _78, _79, _80, _81, _82, _83, _84, _85, _86, _87, _88, _89, _90, _91, _92, _93, _94, _95, _96, _97, _98, _99, _100, _101, _102, _103, _104, _105, _106, _107, _108, _109, _110, _111, _112, _113, _114, _115, _116, _117, _118, _119, _120, _121, _122, _123, _124, _125, _126, _127, N, ...) N
+#define _RSEQ() 127, 126, 125, 124, 123, 122, 121, 120, 119, 118, 117, 116, 115, 114, 113, 112, 111, 110, 109, 108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 
 //! MARK: Filesystem
 
 EXPORT bool DoesFileExist(const char *path);
 EXPORT bool DoesDirExist(const char *path);
-EXPORT char* FormatString(const char *fmt, ...);
-EXPORT char* LoadFile(const char *path, size_t *length);
-EXPORT const char* JoinPath(const char *a, const char *b);
-EXPORT const char* UserPath(void);
-EXPORT const char* CurrentDirectory(void);
+EXPORT char *FormatString(const char *fmt, ...);
+EXPORT char *LoadFile(const char *path, size_t *length);
+EXPORT const char *JoinPath(const char *a, const char *b);
+EXPORT const char *UserPath(void);
+EXPORT const char *CurrentDirectory(void);
 EXPORT bool SetCurrentDirectory(const char *path);
-EXPORT const char* ResolvePath(const char *path);
+EXPORT const char *ResolvePath(const char *path);
 
 //! MARK: Maths
 
@@ -282,7 +293,7 @@ EXPORT const char* ResolvePath(const char *path);
 #define PI 3.14159265358979323846f
 #endif
 #ifndef TWO_PI
-#define TWO_PI  6.28318530717958647692f
+#define TWO_PI 6.28318530717958647692f
 #endif
 #ifndef TAU
 #define TAU TWO_PI
@@ -303,26 +314,26 @@ EXPORT const char* ResolvePath(const char *path);
 #define EPSILON 0.000001f
 #endif
 
-#define Bytes(n)      (n)
-#define Kilobytes(n)  (n << 10)
-#define Megabytes(n)  (n << 20)
-#define Gigabytes(n)  (((uint64_t)n) << 30)
-#define Terabytes(n)  (((uint64_t)n) << 40)
+#define Bytes(n) (n)
+#define Kilobytes(n) (n << 10)
+#define Megabytes(n) (n << 20)
+#define Gigabytes(n) (((uint64_t)n) << 30)
+#define Terabytes(n) (((uint64_t)n) << 40)
 
 #define Thousand(n) ((n)*1000)
-#define Million(n)  ((n)*1000000)
-#define Billion(n)  ((n)*1000000000LL)
+#define Million(n) ((n)*1000000)
+#define Billion(n) ((n)*1000000000LL)
 
-#define U8Max  ((uint8_t)0xFF)
-#define U8Min  ((uint8_t)0)
+#define U8Max ((uint8_t)0xFF)
+#define U8Min ((uint8_t)0)
 #define U16Max ((uint16_t)0xFFFF)
 #define U16Min ((uint16_t)0)
 #define U32Max ((uint32_t)0xFFFFFFFF)
 #define U32Min ((uint32_t)0)
 #define U64Max ((uint64_t)0xFFFFFFFFFFFFFFFF)
 #define U64Min ((uint64_t)0)
-#define S8Max  ((int8_t)0x7F)
-#define S8Min  ((int8_t)-1 - 0x7F)
+#define S8Max ((int8_t)0x7F)
+#define S8Min ((int8_t)-1 - 0x7F)
 #define S16Max ((int16_t)0x7FFF)
 #define S16Min ((int16_t)-1 - 0x7FFF)
 #define S32Max ((int132_t)0x7FFFFFFF)
@@ -331,7 +342,10 @@ EXPORT const char* ResolvePath(const char *path);
 #define S64Min ((int64_t)-1 - 0x7FFFFFFFFFFFFFFF)
 
 #define SWZL_MAP(V, VEC) VEC.V
-#define SWIZZLE(V, ...) { MAP_LIST_UD(SWZL_MAP, V, __VA_ARGS__) }
+#define SWIZZLE(V, ...)                       \
+    {                                         \
+        MAP_LIST_UD(SWZL_MAP, V, __VA_ARGS__) \
+    }
 
 #define __MATRIX_T(W, H) Mat##W##H
 #define __MATRIX_D(W, H, F) Mat##W##H##F
@@ -341,11 +355,11 @@ EXPORT const char* ResolvePath(const char *path);
     X(4, 4)
 #define X(W, H)                                                        \
     typedef float __MATRIX_T(W, H) __attribute__((matrix_type(W, H))); \
-EXPORT __MATRIX_T(W, H)                                                   \
-    __MATRIX_D(W, H, Identity)(void);                                  \
-EXPORT __MATRIX_T(W, H)                                                   \
-    __MATRIX_D(W, H, Zero)(void);
-MATRIX_TYPES
+    EXPORT __MATRIX_T(W, H)                                            \
+        __MATRIX_D(W, H, Identity)(void);                              \
+    EXPORT __MATRIX_T(W, H)                                            \
+        __MATRIX_D(W, H, Zero)(void);
+    MATRIX_TYPES
 #undef X
 
 typedef union {
@@ -371,8 +385,8 @@ typedef union {
     Mat44 mat;
     struct {
         //    0   1   2    3
-        float m0, m4, m8,  m12; // 0
-        float m1, m5, m9,  m13; // 1
+        float m0, m4, m8, m12;  // 0
+        float m1, m5, m9, m13;  // 1
         float m2, m6, m10, m14; // 2
         float m3, m7, m11, m15; // 3
     };
@@ -384,30 +398,34 @@ typedef union {
     X(2)             \
     X(3)             \
     X(4)
-#define X(L)                                                         \
-    typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));    \
-EXPORT __VEC_T(L)                                                       \
- __VEC_D(L, Zero)(void);                                          \
-EXPORT __VEC_T(L)                                                       \
-        __VEC_D(L, New)(float x, ...);                                   \
-EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                            \
-EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                             \
-EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);                       \
-EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                          \
-EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);             \
-EXPORT __VEC_T(L)                                                       \
-EXPORT __VEC_D(L, Normalize)(__VEC_T(L) v);                             \
-EXPORT float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2);         \
-EXPORT float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);            \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Clamp)(__VEC_T(L) v, __VEC_T(L) min, __VEC_T(L) max); \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Min)(__VEC_T(L) v, __VEC_T(L) min);                   \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Max)(__VEC_T(L) v, __VEC_T(L) max);                   \
-    __VEC_T(L)                                                       \
-    __VEC_D(L, Lerp)(__VEC_T(L) v1, __VEC_T(L) v2, float n);
-VECTOR_TYPES
+#define X(L)                                                        \
+    typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));   \
+    EXPORT __VEC_T(L)                                               \
+        __VEC_D(L, Zero)(void);                                     \
+    EXPORT __VEC_T(L)                                               \
+        __VEC_D(L, New)(float x, ...);                              \
+    EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                    \
+    EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                     \
+    EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);               \
+    EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                  \
+    EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);     \
+    EXPORT __VEC_T(L)                                               \
+    EXPORT __VEC_D(L, Normalize)(__VEC_T(L) v);                     \
+    EXPORT float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2); \
+    EXPORT float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);    \
+    __VEC_T(L)                                                      \
+    __VEC_D(L, Clamp)                                               \
+    (__VEC_T(L) v, __VEC_T(L) min, __VEC_T(L) max);                 \
+    __VEC_T(L)                                                      \
+    __VEC_D(L, Min)                                                 \
+    (__VEC_T(L) v, __VEC_T(L) min);                                 \
+    __VEC_T(L)                                                      \
+    __VEC_D(L, Max)                                                 \
+    (__VEC_T(L) v, __VEC_T(L) max);                                 \
+    __VEC_T(L)                                                      \
+    __VEC_D(L, Lerp)                                                \
+    (__VEC_T(L) v1, __VEC_T(L) v2, float n);
+    VECTOR_TYPES
 #undef X
 
 typedef union {
@@ -552,9 +570,9 @@ typedef Matrix Matrix4;
 
 #define Vec(v) (v.vec)
 #define Mat(m) (m.mat)
-#define Vector2(v) ((Vector2f) { .vec = v })
-#define Vector3(v) ((Vector3f) { .vec = v })
-#define Vector4(v) ((Vector4f) { .vec = v })
+#define Vector2(v) ((Vector2f){.vec = v})
+#define Vector3(v) ((Vector3f){.vec = v})
+#define Vector4(v) ((Vector4f){.vec = v})
 
 #define X(N) Matrix##N Matrix##N##Identity(void);
 VECTOR_TYPES
@@ -670,12 +688,13 @@ typedef union {
     ((A).id == (B).id)
 
 #define EcsNil 0xFFFFFFFFull
-#define EcsNilEntity (Entity){.id = EcsNil}
+#define EcsNilEntity \
+    (Entity) { .id = EcsNil }
 
 #define ECS_COMPONENT(WORLD, T) EcsNewComponent((WORLD), sizeof(T))
 #define ECS_TAG(WORLD) EcsNewComponent((WORLD), 0)
 #define ECS_QUERY(WORLD, CB, UD, ...) EcsQuery((WORLD), CB, UD, (Entity[]){__VA_ARGS__}, sizeof((Entity[]){__VA_ARGS__}) / sizeof(Entity));
-#define ECS_FIELD(QUERY, T, IDX) (T*)EcsQueryField(QUERY, IDX)
+#define ECS_FIELD(QUERY, T, IDX) (T *)EcsQueryField(QUERY, IDX)
 #define ECS_SYSTEM(WORLD, CB, ...) EcsNewSystem((WORLD), CB, N_ARGS(__VA_ARGS__), __VA_ARGS__)
 #define ECS_PREFAB(WORLD, ...) EcsNewPrefab((WORLD), N_ARGS(__VA_ARGS__), __VA_ARGS__)
 #define ECS_CHILDREN(WORLD, PARENT, CB) (EcsRelations((WORLD), (PARENT), EcsChildof, (CB)))
@@ -714,7 +733,7 @@ typedef struct {
     void *userdata;
 } Query;
 
-typedef void(*SystemCb)(Query *query);
+typedef void (*SystemCb)(Query *query);
 
 typedef struct {
     Entity *components;
@@ -730,15 +749,15 @@ typedef struct {
 
 typedef struct {
     Entity object,
-           relation;
+        relation;
 } Relation;
 
 typedef enum {
-    EcsEntityType    = 0,
+    EcsEntityType = 0,
     EcsComponentType = (1 << 0),
-    EcsSystemType    = (1 << 1),
-    EcsPrefabType    = (1 << 2),
-    EcsRelationType  = (1 << 3)
+    EcsSystemType = (1 << 1),
+    EcsPrefabType = (1 << 2),
+    EcsRelationType = (1 << 3)
 } EntityFlag;
 
 // MARK: ECS Functions
@@ -760,7 +779,7 @@ EXPORT void EcsDetach(EcsWorld *world, Entity entity, Entity component);
 EXPORT void EcsDisassociate(EcsWorld *world, Entity entity);
 EXPORT bool EcsHasRelation(EcsWorld *world, Entity entity, Entity object);
 EXPORT bool EcsRelated(EcsWorld *world, Entity entity, Entity relation);
-EXPORT void* EcsGet(EcsWorld *world, Entity entity, Entity component);
+EXPORT void *EcsGet(EcsWorld *world, Entity entity, Entity component);
 EXPORT void EcsSet(EcsWorld *world, Entity entity, Entity component, const void *data);
 EXPORT void EcsRelations(EcsWorld *world, Entity parent, Entity relation, void *userdata, SystemCb cb);
 
@@ -772,7 +791,7 @@ EXPORT void EcsDisableTimer(EcsWorld *world, Entity timer);
 EXPORT void EcsRunSystem(EcsWorld *world, Entity system);
 EXPORT void EcsStep(EcsWorld *world);
 EXPORT void EcsQuery(EcsWorld *world, SystemCb cb, void *userdata, Entity *components, size_t sizeOfComponents);
-EXPORT void* EcsQueryField(Query *query, size_t index);
+EXPORT void *EcsQueryField(Query *query, size_t index);
 
 extern Entity EcsSystem;
 extern Entity EcsPrefab;
@@ -811,7 +830,7 @@ EXPORT int PGet(Image *img, int x, int y);
 EXPORT bool PasteImage(Image *dst, Image *src, int x, int y);
 EXPORT bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
 EXPORT bool CopyImage(Image *a, Image *b);
-EXPORT void PassthruImage(Image *img, int(*fn)(int x, int y, int col));
+EXPORT void PassthruImage(Image *img, int (*fn)(int x, int y, int col));
 EXPORT bool ScaleImage(Image *a, int nw, int nh, Image *img);
 EXPORT bool RotateImage(Image *a, float angle, Image *b);
 EXPORT void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col);
@@ -831,7 +850,7 @@ typedef struct wis {
 #if defined(WEE_POSIX)
     ino_t handleID;
 #else
-    FILETIME writeTime;
+FILETIME writeTime;
 #endif
     weeeeeeeeeeeeeeeeeeeeeeeeeeeee *context;
     weeScene *scene;
@@ -841,10 +860,10 @@ typedef struct wis {
 typedef struct {
     weeInternalScene *wis;
     struct hashmap *map;
-    
+
     bool running;
     sapp_desc desc;
-    
+
     sg_pass_action pass_action;
     sg_pass pass;
     sg_pipeline pip;
@@ -853,20 +872,20 @@ typedef struct {
 } weeState;
 
 struct weeScene {
-    weeeeeeeeee*(*init)(weeState*);
-    void(*deinit)(weeState*, weeeeeeee*);
-    void(*reload)(weeState*, weeeeeeee*);
-    void(*background)(weeState*, weeee*);
-    void(*unload)(weeState*, weeeeeeee*);
-    void(*event)(weeState*, weeeeeeeee*, const sapp_event*);
-    bool(*frame)(weeState*, weeeeeeeee*, float);
+    weeeeeeeeee *(*init)(weeState *);
+    void (*deinit)(weeState *, weeeeeeee *);
+    void (*reload)(weeState *, weeeeeeee *);
+    void (*background)(weeState *, weeee *);
+    void (*unload)(weeState *, weeeeeeee *);
+    void (*event)(weeState *, weeeeeeeee *, const sapp_event *);
+    bool (*frame)(weeState *, weeeeeeeee *, float);
 };
 
 EXPORT void weeInit(weeState *state);
 EXPORT void weeCreateScene(weeState *state, const char *name, const char *path);
-EXPORT void weePushScene(weeState *state,const char *name);
+EXPORT void weePushScene(weeState *state, const char *name);
 EXPORT void weePopScene(weeState *state);
-EXPORT void weeDestroyScene(weeState *state,const char *name);
+EXPORT void weeDestroyScene(weeState *state, const char *name);
 
 extern weeState state;
 
