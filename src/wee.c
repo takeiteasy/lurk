@@ -5,12 +5,6 @@
 //  Created by George Watson on 21/07/2023.
 //
 
-#if !defined(WEE_STATE)
-#define SOKOL_IMPL
-#define MJSON_IMPLEMENTATION
-#define JIM_IMPLEMENTATION
-#endif
-#define HASHMAP_IMPL
 #include "wee.h"
 #if !defined(WEE_STATE)
 #include "framebuffer.glsl.h"

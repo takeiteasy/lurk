@@ -7,120 +7,98 @@
 
 #include "wee.h"
 
-int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
-    return ((unsigned int)a << 24) | ((unsigned int)r << 16) | ((unsigned int)g << 8) | b;
+Color RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+    return (Color) {
+        .r = r,
+        .g = g,
+        .b = b,
+        .a = a
+    };
 }
 
-int RGB(unsigned char r, unsigned char g, unsigned char b) {
+Color RGB(unsigned char r, unsigned char g, unsigned char b) {
     return RGBA(r, g, b, 255);
 }
 
-int RGBA1(unsigned char c, unsigned char a) {
+Color RGBA1(unsigned char c, unsigned char a) {
     return RGBA(c, c, c, a);
 }
 
-int RGB1(unsigned char c) {
+Color RGB1(unsigned char c) {
     return RGB(c, c, c);
 }
 
-unsigned char Rgba(int c) {
-    return (unsigned char)((c >> 16) & 0xFF);
-}
-
-unsigned char rGba(int c) {
-    return (unsigned char)((c >>  8) & 0xFF);
-}
-
-unsigned char rgBa(int c) {
-    return (unsigned char)(c & 0xFF);
-}
-
-unsigned char rgbA(int c) {
-    return (unsigned char)((c >> 24) & 0xFF);
-}
-
-int rGBA(int c, unsigned char r) {
-    return (c & ~0x00FF0000) | (r << 16);
-}
-
-int RgBA(int c, unsigned char g) {
-    return (c & ~0x0000FF00) | (g << 8);
-}
-
-int RGbA(int c, unsigned char b) {
-    return (c & ~0x000000FF) | b;
-}
-
-int RGBa(int c, unsigned char a) {
-    return (c & ~0x00FF0000) | (a << 24);
-}
-
-bool InitImage(Image *img, unsigned int w, unsigned int h) {
+Image* CreateImage(unsigned int w, unsigned int h) {
+    Image *img = malloc(sizeof(img));
     img->w = w;
     img->h = h;
     size_t sz = w * h * sizeof(unsigned int) + 1;
     img->buf = malloc(sz);
     memset(img->buf, 0, sz);
-    return true;
+    return img;
 }
 
 void DestroyImage(Image *img) {
-    if (img->buf)
-        free(img->buf);
-    memset(img, 0, sizeof(Image));
+    if (img) {
+        if (img->buf)
+            free(img->buf);
+        free(img);
+    }
 }
 
-void FillImage(Image *img, int col) {
+void FillImage(Image *img, Color col) {
     for (int i = 0; i < img->w * img->h; ++i)
-        img->buf[i] = col;
+        img->buf[i] = col.value;
 }
 
-static inline void flood_fn(Image *img, int x, int y, int new, int old) {
-    if (new == old || PGet(img, x, y) != old)
+#define CmpColor(A, B) ((A).value == (B).value)
+
+static inline void flood_fn(Image *img, int x, int y, Color new, Color old) {
+    if (CmpColor(new, old) || !CmpColor(PGet(img, x, y), old))
         return;
     
     int x1 = x;
-    while (x1 < img->w && PGet(img, x1, y) == old) {
+    while (x1 < img->w && CmpColor(PGet(img, x1, y), old)) {
         PSet(img, x1, y, new);
         x1++;
     }
     
     x1 = x - 1;
-    while (x1 >= 0 && PGet(img, x1, y) == old) {
+    while (x1 >= 0 && CmpColor(PGet(img, x1, y), old)) {
         PSet(img, x1, y, new);
         x1--;
     }
     
     x1 = x;
-    while (x1 < img->w && PGet(img, x1, y) == new) {
-        if(y > 0 && PGet(img, x1, y - 1) == old)
+    while (x1 < img->w && CmpColor(PGet(img, x1, y), new)) {
+        if(y > 0 && CmpColor(PGet(img, x1, y - 1), old))
             flood_fn(img, x1, y - 1, new, old);
         x1++;
     }
     
     x1 = x - 1;
-    while(x1 >= 0 && PGet(img, x1, y) == new) {
-        if(y > 0 && PGet(img, x1, y - 1) == old)
+    while(x1 >= 0 && CmpColor(PGet(img, x1, y), new)) {
+        if(y > 0 && CmpColor(PGet(img, x1, y - 1), old))
             flood_fn(img, x1, y - 1, new, old);
         x1--;
     }
     
     x1 = x;
-    while(x1 < img->w && PGet(img, x1, y) == new) {
-        if(y < img->h - 1 && PGet(img, x1, y + 1) == old)
+    while(x1 < img->w && CmpColor(PGet(img, x1, y), new)) {
+        if(y < img->h - 1 && CmpColor(PGet(img, x1, y + 1), old))
             flood_fn(img, x1, y + 1, new, old);
         x1++;
     }
     
     x1 = x - 1;
-    while(x1 >= 0 && PGet(img, x1, y) == new) {
-        if(y < img->h - 1 && PGet(img, x1, y + 1) == old)
+    while(x1 >= 0 && CmpColor(PGet(img, x1, y), new)) {
+        if(y < img->h - 1 && CmpColor(PGet(img, x1, y + 1), old))
             flood_fn(img, x1, y + 1, new, old);
         x1--;
     }
 }
 
-void FloodImage(Image *img, int x, int y, int col) {
+void FloodImage(Image *img, int x, int y, Color col) {
     if (x < 0 || y < 0 || x >= img->w || y >= img->h)
         return;
     flood_fn(img, x, y, col, PGet(img, x, y));
@@ -132,78 +110,71 @@ void ClearImage(Image *img) {
 
 #define BLEND(c0, c1, a0, a1) (c0 * a0 / 255) + (c1 * a1 * (255 - a0) / 65025)
 
-void BSet(Image *img, int x, int y, int c) {
-    unsigned char a = rgbA(c);
-    if (!a || x < 0 || y < 0 || x >= img->w || y >= img->h)
-        return;
-    if (a == 255) {
-        PSet(img, x, y, c);
+void BSet(Image *img, int x, int y, Color col) {
+    if (col.a == 255) {
+        PSet(img, x, y, col);
         return;
     }
-    int *p = &img->buf[y * img->w + x];
-    unsigned char _b = rgbA(*p);
-    *p = (a == 255 || !img) ? c : RGBA(BLEND(Rgba(c), Rgba(*p), a, _b),
-                                       BLEND(rGba(c), rGba(*p), a, _b),
-                                       BLEND(rgBa(c), rgBa(*p), a, _b),
-                                       a + (_b * (255 - a) >> 8));
+    Color old = { .value = img->buf[y * img->w + x] };
+    Color new = {
+        .r = BLEND(col.r, old.r, col.a, old.a),
+        .g = BLEND(col.g, old.g, col.g, old.g),
+        .b = BLEND(col.b, old.b, col.b, old.b),
+        .a = col.a + (old.a * (255 - col.a) >> 8)
+    };
+    img->buf[y * img->w + x] = new.value;
 }
 
-void PSet(Image *img, int x, int y, int col) {
-    if (x >= 0 && y >= 0 && x < img->w && y < img->h)
-        img->buf[y * img->w + x] = col;
+void PSet(Image *img, int x, int y, Color col) {
+    img->buf[y * img->w + x] = col.value;
 }
 
-int PGet(Image *img, int x, int y) {
-    return (x >= 0 && y >= 0 && x < img->w && y < img->h) ? img->buf[y * img->w + x] : 0;
+Color PGet(Image *img, int x, int y) {
+    return (Color) { .value = img->buf[y * img->w + x] };
 }
 
-bool PasteImage(Image *dst, Image *src, int x, int y) {
-    int ox, oy, c;
-    for (ox = 0; ox < src->w; ++ox) {
-        for (oy = 0; oy < src->h; ++oy) {
+void PasteImage(Image *dst, Image *src, int x, int y) {
+    Color col;
+    for (int ox = 0; ox < src->w; ++ox) {
+        for (int oy = 0; oy < src->h; ++oy) {
             if (oy > dst->h)
                 break;
-            c = PGet(src, ox, oy);
-            BSet(dst, x + ox, y + oy, c);
+            col = PGet(src, ox, oy);
+            BSet(dst, x + ox, y + oy, col);
         }
         if (ox > dst->w)
             break;
     }
-    return true;
 }
 
-bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh) {
+void PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh) {
     for (int ox = 0; ox < rw; ++ox)
         for (int oy = 0; oy < rh; ++oy)
             BSet(dst, ox + x, oy + y, PGet(src, ox + rx, oy + ry));
-    return true;
 }
 
-bool CopyImage(Image *a, Image *img) {
-    if (!InitImage(img, a->w, a->h))
-        return false;
-    memcpy(img->buf, a->buf, a->w * a->h * sizeof(unsigned int) + 1);
-    return !!img->buf;
+Image* CopyImage(Image *src) {
+    Image *img = CreateImage(src->w, src->h);
+    memcpy(img->buf, src->buf, src->w * src->h * sizeof(unsigned int));
+    return img;
 }
 
-void PassthruImage(Image *img, int (*fn)(int x, int y, int col)) {
+void PassthruImage(Image *img, int (*fn)(int x, int y, Color col)) {
     int x, y;
     for (x = 0; x < img->w; ++x)
         for (y = 0; y < img->h; ++y)
             img->buf[y * img->w + x] = fn(x, y, PGet(img, x, y));
 }
 
-bool ScaleImage(Image *a, int nw, int nh, Image *img) {
-    if (!InitImage(img, nw, nh))
-        return false;
-    
-    int x_ratio = (int)((a->w << 16) / img->w) + 1;
-    int y_ratio = (int)((a->h << 16) / img->h) + 1;
+Image* ScaleImage(Image *src, int nw, int nh) {
+    Image *img = CreateImage(nw, nh);
+    int x_ratio = (int)((src->w << 16) / img->w) + 1;
+    int y_ratio = (int)((src->h << 16) / img->h) + 1;
     int x2, y2, i, j;
     for (i = 0; i < img->h; ++i) {
         int *t = img->buf + i * img->w;
         y2 = ((i * y_ratio) >> 16);
-        int *p = a->buf + y2 * a->w;
+        int *p = src->buf + y2 * src->w;
         int rat = 0;
         for (j = 0; j < img->w; ++j) {
             x2 = (rat >> 16);
@@ -211,20 +182,20 @@ bool ScaleImage(Image *a, int nw, int nh, Image *img) {
             rat += x_ratio;
         }
     }
-    return true;
+    return img;
 }
 
 #define __MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define __MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define __D2R(a) ((a) * M_PI / 180.0)
 
-bool RotateImage(Image *a, float angle, Image *img) {
+Image* RotateImage(Image *src, float angle) {
     float theta = __D2R(angle);
     float c = cosf(theta), s = sinf(theta);
     float r[3][2] = {
-        { -a->h * s, a->h * c },
-        {  a->w * c - a->h * s, a->h * c + a->w * s },
-        {  a->w * c, a->w * s }
+        { -src->h * s, src->h * c },
+        {  src->w * c - src->h * s, src->h * c + src->w * s },
+        {  src->w * c, src->w * s }
     };
     
     float mm[2][2] = {{
@@ -237,22 +208,21 @@ bool RotateImage(Image *a, float angle, Image *img) {
     
     int dw = (int)ceil(fabsf(mm[1][0]) - mm[0][0]);
     int dh = (int)ceil(fabsf(mm[1][1]) - mm[0][1]);
-    if (!InitImage(img, dw, dh))
-        return false;
+    Image *img = CreateImage(dw, dh);
     
     int x, y, sx, sy;
     for (x = 0; x < dw; ++x)
         for (y = 0; y < dh; ++y) {
             sx = ((x + mm[0][0]) * c + (y + mm[0][1]) * s);
             sy = ((y + mm[0][1]) * c - (x + mm[0][0]) * s);
-            if (sx < 0 || sx >= a->w || sy < 0 || sy >= a->h)
+            if (sx < 0 || sx >= src->w || sy < 0 || sy >= src->h)
                 continue;
-            BSet(img, x, y, PGet(a, sx, sy));
+            BSet(img, x, y, PGet(src, sx, sy));
         }
-    return true;
+    return img;
 }
 
-static inline void vline(Image *img, int x, int y0, int y1, int col) {
+static inline void vline(Image *img, int x, int y0, int y1, Color col) {
     if (y1 < y0) {
         y0 += y1;
         y1  = y0 - y1;
@@ -271,7 +241,7 @@ static inline void vline(Image *img, int x, int y0, int y1, int col) {
         BSet(img, x, y, col);
 }
 
-static inline void hline(Image *img, int y, int x0, int x1, int col) {
+static inline void hline(Image *img, int y, int x0, int x1, Color col) {
     if (x1 < x0) {
         x0 += x1;
         x1  = x0 - x1;
@@ -290,7 +260,7 @@ static inline void hline(Image *img, int y, int x0, int x1, int col) {
         BSet(img, x, y, col);
 }
 
-void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col) {
+void DrawLine(Image *img, int x0, int y0, int x1, int y1, Color col) {
     if (x0 == x1)
         vline(img, x0, y0, y1, col);
     if (y0 == y1)
@@ -306,7 +276,7 @@ void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col) {
     }
 }
 
-void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill) {
+void DrawCircle(Image *img, int xc, int yc, int r, Color col, bool fill) {
     int x = -r, y = 0, err = 2 - 2 * r; /* II. Quadrant */
     do {
         BSet(img, xc - x, yc + y, col);    /*   I. Quadrant */
@@ -327,7 +297,7 @@ void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill) {
     } while (x < 0);
 }
 
-void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill) {
+void DrawRect(Image *img, int x, int y, int w, int h, Color col, bool fill) {
     if (x < 0) {
         w += x;
         x  = 0;
@@ -366,7 +336,7 @@ void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill) {
         b = temp;     \
     } while (0)
 
-void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, int col, bool fill) {
+void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, Color col, bool fill) {
     if (y0 ==  y1 && y0 ==  y2)
         return;
     if (fill) {
@@ -472,7 +442,7 @@ static int unfilter(int w, int h, int bipp, unsigned char* raw) {
     return 1;
 }
 
-static void convert(int bypp, int w, int h, const unsigned char* src, int* dest, const unsigned char* trns) {
+static void convert(int bypp, int w, int h, const unsigned char* src, Color* dest, const unsigned char* trns) {
     int x, y;
     for (y = 0; y < h; y++) {
         src++;  // skip filter byte
@@ -511,7 +481,7 @@ static void convert(int bypp, int w, int h, const unsigned char* src, int* dest,
     }
 }
 
-static void depalette(int w, int h, unsigned char* src, int* dest, int bipp, const unsigned char* plte, const unsigned char* trns, int trnsSize) {
+static void depalette(int w, int h, unsigned char* src, Color* dest, int bipp, const unsigned char* plte, const unsigned char* trns, int trnsSize) {
     int x, y, c;
     unsigned char alpha;
     int mask, len;
@@ -805,12 +775,13 @@ static int inflate(void* out, unsigned outlen, const void* in, unsigned inlen) {
     return 1;
 }
 
-static bool load_png(Image *img, PNG *png) {
+static Image* load_png(PNG *png) {
     const unsigned char *ihdr, *idat, *plte, *trns, *first;
     int trnsSize = 0;
     int depth, ctype, bipp;
     int datalen = 0;
     unsigned char *data = NULL, *out;
+    Image *img = NULL;
     
     PNG_CHECK(memcmp(png->p, "\211PNG\r\n\032\n", 8) == 0);  // PNG signature
     png->p += 8;
@@ -842,7 +813,7 @@ static bool load_png(Image *img, PNG *png) {
     }
     
     // Allocate bitmap (+1 width to save room for stupid PNG filter bytes)
-    InitImage(img, get32(ihdr + 0) + 1, get32(ihdr + 4));
+    img = CreateImage(get32(ihdr + 0) + 1, get32(ihdr + 4));
     PNG_CHECK(img->buf);
     img->w--;
     
@@ -890,7 +861,7 @@ static bool load_png(Image *img, PNG *png) {
     }
     
     free(data);
-    return true;
+    return img;
     
 err:
     if (data)
@@ -915,22 +886,22 @@ static unsigned char* read_file(const char *path, size_t *sizeOfFile) {
     return data;
 }
 
-bool LoadImage(Image *out, const char *path) {
+Image* LoadImage(const char *path) {
     unsigned char *data = NULL;
     size_t sizeOfData = 0;
     if (!(data = read_file(path, &sizeOfData)) && sizeOfData > 0)
         return false;
-    bool result = LoadImageMemory(out, (void*)data, sizeOfData);
+    Image *result = LoadImageMemory((void*)data, sizeOfData);
     free(data);
     return result;
 }
 
-bool LoadImageMemory(Image *out, const void *data, size_t sizeOfData) {
+Image* LoadImageMemory(const void *data, size_t sizeOfData) {
     PNG png = {
         .p = (unsigned char*)data,
         .end = (unsigned char*)data + sizeOfData
     };
-    return load_png(out, &png);
+    return load_png(&png);
 }
 
 typedef struct {
@@ -1065,15 +1036,16 @@ static long savePngData(Save* s, Image* bmp, long dataPos) {
     putbits(s, 3, 3);  // zlib last block + fixed dictionary
     for (y = 0; y < bmp->h; y++) {
         int *row = &bmp->buf[y * bmp->w];
-        int prev = RGBA1(0, 0);
+        Color prev = RGBA1(0, 0);
 
         encodeByte(s, 1);  // sub filter
         for (x = 0; x < bmp->w; x++) {
-            encodeByte(s, Rgba(row[x]) - Rgba(prev));
-            encodeByte(s, rGba(row[x]) - rGba(prev));
-            encodeByte(s, rgBa(row[x]) - rgBa(prev));
-            encodeByte(s, rgbA(row[x]) - rgbA(prev));
-            prev = row[x];
+            Color new = { .value = row[x] };
+            encodeByte(s, new.r - prev.r);
+            encodeByte(s, new.g - prev.g);
+            encodeByte(s, new.b - prev.b);
+            encodeByte(s, new.a - prev.a);
+            prev = new;
         }
     }
     endrun(s);

@@ -164,9 +164,9 @@ typedef enum bool {
 #endif
 
 #include "sokol_gfx.h"
+#include "sokol_args.h"
 #include "sokol_app.h"
 #include "sokol_glue.h"
-#include "sokol_args.h"
 #include "sokol_time.h"
 #include "jim.h"
 #include "mjson.h"
@@ -347,19 +347,18 @@ EXPORT const char *ResolvePath(const char *path);
         MAP_LIST_UD(SWZL_MAP, V, __VA_ARGS__) \
     }
 
-#define __MATRIX_T(W, H) Mat##W##H
-#define __MATRIX_D(W, H, F) Mat##W##H##F
 #define MATRIX_TYPES \
     X(2, 2)          \
     X(3, 3)          \
     X(4, 4)
+
+#define __MATRIX_T(W, H) Mat##W##H
+#define __MATRIX_D(W, H, F) Mat##W##H##F
 #define X(W, H)                                                        \
     typedef float __MATRIX_T(W, H) __attribute__((matrix_type(W, H))); \
-    EXPORT __MATRIX_T(W, H)                                            \
-        __MATRIX_D(W, H, Identity)(void);                              \
-    EXPORT __MATRIX_T(W, H)                                            \
-        __MATRIX_D(W, H, Zero)(void);
-    MATRIX_TYPES
+    EXPORT __MATRIX_T(W, H) __MATRIX_D(W, H, Identity)(void);          \
+    EXPORT __MATRIX_T(W, H) __MATRIX_D(W, H, Zero)(void);
+MATRIX_TYPES
 #undef X
 
 typedef union {
@@ -392,40 +391,30 @@ typedef union {
     };
 } Matrix;
 
-#define __VEC_T(L) Vec##L
-#define __VEC_D(L, F) Vec##L##F
 #define VECTOR_TYPES \
     X(2)             \
     X(3)             \
     X(4)
-#define X(L)                                                        \
-    typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));   \
-    EXPORT __VEC_T(L)                                               \
-        __VEC_D(L, Zero)(void);                                     \
-    EXPORT __VEC_T(L)                                               \
-        __VEC_D(L, New)(float x, ...);                              \
-    EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                    \
-    EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                     \
-    EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);               \
-    EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                  \
-    EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);     \
-    EXPORT __VEC_T(L)                                               \
-    EXPORT __VEC_D(L, Normalize)(__VEC_T(L) v);                     \
-    EXPORT float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2); \
-    EXPORT float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);    \
-    __VEC_T(L)                                                      \
-    __VEC_D(L, Clamp)                                               \
-    (__VEC_T(L) v, __VEC_T(L) min, __VEC_T(L) max);                 \
-    __VEC_T(L)                                                      \
-    __VEC_D(L, Min)                                                 \
-    (__VEC_T(L) v, __VEC_T(L) min);                                 \
-    __VEC_T(L)                                                      \
-    __VEC_D(L, Max)                                                 \
-    (__VEC_T(L) v, __VEC_T(L) max);                                 \
-    __VEC_T(L)                                                      \
-    __VEC_D(L, Lerp)                                                \
-    (__VEC_T(L) v1, __VEC_T(L) v2, float n);
-    VECTOR_TYPES
+
+#define __VEC_T(L) Vec##L##f
+#define __VEC_D(L, F) Vec##L##F
+#define X(L)                                                                           \
+    typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));                      \
+    EXPORT __VEC_T(L) __VEC_D(L, Zero)(void);                                          \
+    EXPORT __VEC_T(L) __VEC_D(L, New)(float x, ...);                                   \
+    EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                                       \
+    EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                                        \
+    EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);                                  \
+    EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                                     \
+    EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);                        \
+    EXPORT __VEC_T(L) __VEC_D(L, Normalize)(__VEC_T(L) v);                             \
+    EXPORT float __VEC_D(L, DistSqr)(__VEC_T(L) v1, __VEC_T(L) v2);                    \
+    EXPORT float __VEC_D(L, Dist)(__VEC_T(L) v1, __VEC_T(L) v2);                       \
+    EXPORT __VEC_T(L) __VEC_D(L, Clamp)(__VEC_T(L) v, __VEC_T(L) min, __VEC_T(L) max); \
+    EXPORT __VEC_T(L) __VEC_D(L, Min)(__VEC_T(L) v, __VEC_T(L) min);                   \
+    EXPORT __VEC_T(L) __VEC_D(L, Max)(__VEC_T(L) v, __VEC_T(L) max);                   \
+    EXPORT __VEC_T(L) __VEC_D(L, Lerp)(__VEC_T(L) v1, __VEC_T(L) v2, float n);
+VECTOR_TYPES
 #undef X
 
 typedef union {
@@ -445,7 +434,7 @@ typedef union {
     };
     float st[2];
     float elements[2];
-    Vec2 vec;
+    Vec2f vec;
 } Vector2f;
 
 typedef union {
@@ -492,7 +481,7 @@ typedef union {
         Vector2f tp;
     };
     float elements[3];
-    Vec3 vec;
+    Vec3f vec;
 } Vector3f;
 
 typedef union {
@@ -554,18 +543,18 @@ typedef union {
         Vector3f tpq;
     };
     float elements[4];
-    Vec4 vec;
+    Vec4f vec;
 } Vector4f;
 
 typedef float VecNf[];
 typedef int VecNi[];
 
-typedef Vec4 Quat;
+typedef Vec4f Quat;
 typedef Vector4f Quaternion;
-#define X(L) typedef int Position##L __attribute__((ext_vector_type(L)));
+#define X(L) typedef int Vec##L##i __attribute__((ext_vector_type(L)));
 VECTOR_TYPES
 #undef X
-typedef Position2 Position;
+typedef Vec2i Position;
 typedef Matrix Matrix4;
 
 #define Vec(v) (v.vec)
@@ -580,28 +569,28 @@ VECTOR_TYPES
 #define MatrixIdentity Matrix4Identity
 
 #define Vector2Angle(v1, v2) Vec2Angle(Vec(v1), Vec(v2))
-EXPORT float Vec2Angle(Vec2 v1, Vec2 v2);
+EXPORT float Vec2Angle(Vec2f v1, Vec2f v2);
 #define Vector2Rotate(v, angle) Vector2(Vec2Rotate(Vec(v), angle))
-EXPORT Vec2 Vec2Rotate(Vec2 v, float angle);
+EXPORT Vec2f Vec2Rotate(Vec2f v, float angle);
 #define Vector2MoveTowards(v, target, maxDistance) Vector2(Vec2MoveTowards(Vec(v), Vec(target), maxDistance))
-EXPORT Vec2 Vec2MoveTowards(Vec2 v, Vec2 target, float maxDistance);
+EXPORT Vec2f Vec2MoveTowards(Vec2f v, Vec2f target, float maxDistance);
 #define Vector2Reflect(v, normal) Vector2(Vec2Reflect(Vec(v), Vec(normal)))
-EXPORT Vec2 Vec2Reflect(Vec2 v, Vec2 normal);
+EXPORT Vec2f Vec2Reflect(Vec2f v, Vec2f normal);
 
 #define Vector3Reflect(v, normal) Vector3(Vec3Reflect(Vec(v), Vec(normal)))
-EXPORT Vec3 Vec3Reflect(Vec3 v, Vec3 normal);
+EXPORT Vec3f Vec3Reflect(Vec3f v, Vec3f normal);
 #define Vector3Cross(v, v2) Vector3(Vec3Cross(Vec(v), Vec(v2)))
-EXPORT Vec3 Vec3Cross(Vec3 v1, Vec3 v2);
+EXPORT Vec3f Vec3Cross(Vec3f v1, Vec3f v2);
 #define Vector3Perpendicular(v) Vector3(Vec3Perpendicular(Vec(v)))
-EXPORT Vec3 Vec3Perpendicular(Vec3 v);
+EXPORT Vec3f Vec3Perpendicular(Vec3f v);
 #define Vector3Angle(v1, v2) Vec3Angle(Vec(v1), Vec(v2))
-EXPORT float Vec3Angle(Vec3 v1, Vec3 v2);
+EXPORT float Vec3Angle(Vec3f v1, Vec3f v2);
 #define Vector3RotateByQuaternion(v, q) Vector3(Vec3RotateByQuaternion(Vec(v), Vec(q)))
-EXPORT Vec3 Vec3RotateByQuaternion(Vec3 v, Quat q);
+EXPORT Vec3f Vec3RotateByQuaternion(Vec3f v, Quat q);
 #define Vector3RotateByAxisAngle(v, axis, angle) Vector3(Vec3RotateByAxisAngle(Vec(v), Vec(axis), angle))
-EXPORT Vec3 Vec3RotateByAxisAngle(Vec3 v, Vec3 axis, float angle);
+EXPORT Vec3f Vec3RotateByAxisAngle(Vec3f v, Vec3f axis, float angle);
 #define Vector3Refract(v, n, r) Vector3(Vec3Refract(Vec(v), Vec(n), r))
-EXPORT Vec3 Vec3Refract(Vec3 v, Vec3 n, float r);
+EXPORT Vec3f Vec3Refract(Vec3f v, Vec3f n, float r);
 
 EXPORT int FloatCmp(float a, float b);
 EXPORT int Min(int a, int b);
@@ -678,18 +667,13 @@ typedef union {
     uint64_t id;
 } Entity;
 
-#define ENTITY_ID(E) \
-    ((E).parts.id)
-#define ENTITY_VERSION(E) \
-    ((E).parts.version)
-#define ENTITY_IS_NIL(E) \
-    ((E).parts.id == EcsNil)
-#define ENTITY_CMP(A, B) \
-    ((A).id == (B).id)
+#define ENTITY_ID(E) ((E).parts.id)
+#define ENTITY_VERSION(E) ((E).parts.version)
+#define ENTITY_IS_NIL(E) ((E).parts.id == EcsNil)
+#define ENTITY_CMP(A, B) ((A).id == (B).id)
 
 #define EcsNil 0xFFFFFFFFull
-#define EcsNilEntity \
-    (Entity) { .id = EcsNil }
+#define EcsNilEntity (Entity) { .id = EcsNil }
 
 #define ECS_COMPONENT(WORLD, T) EcsNewComponent((WORLD), sizeof(T))
 #define ECS_TAG(WORLD) EcsNewComponent((WORLD), 0)
@@ -749,7 +733,7 @@ typedef struct {
 
 typedef struct {
     Entity object,
-        relation;
+    relation;
 } Relation;
 
 typedef enum {
@@ -801,46 +785,56 @@ extern Entity EcsTimer;
 
 //! MARK: Image
 
-EXPORT int RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-EXPORT int RGB(unsigned char r, unsigned char g, unsigned char b);
-EXPORT int RGBA1(unsigned char c, unsigned char a);
-EXPORT int RGB1(unsigned char c);
-EXPORT unsigned char Rgba(int c);
-EXPORT unsigned char rGba(int c);
-EXPORT unsigned char rgBa(int c);
-EXPORT unsigned char rgbA(int c);
-EXPORT int rGBA(int c, unsigned char r);
-EXPORT int RgBA(int c, unsigned char g);
-EXPORT int RGbA(int c, unsigned char b);
-EXPORT int RGBa(int c, unsigned char a);
+typedef union {
+    struct {
+        unsigned char a, b, g, r;
+    };
+    int value;
+} Color;
+
+EXPORT Color RGBA(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+EXPORT Color RGB(unsigned char r, unsigned char g, unsigned char b);
+EXPORT Color RGBA1(unsigned char c, unsigned char a);
+EXPORT Color RGB1(unsigned char c);
 
 typedef struct {
     int *buf, w, h;
 } Image;
 
-EXPORT bool InitImage(Image *img, unsigned int w, unsigned int h);
+EXPORT Image* CreateImage(unsigned int w, unsigned int h);
 EXPORT void DestroyImage(Image *img);
 
-EXPORT void FillImage(Image *img, int col);
-EXPORT void FloodImage(Image *img, int x, int y, int col);
+EXPORT void FillImage(Image *img, Color col);
+EXPORT void FloodImage(Image *img, int x, int y, Color col);
 EXPORT void ClearImage(Image *img);
-EXPORT void BSet(Image *img, int x, int y, int col);
-EXPORT void PSet(Image *img, int x, int y, int col);
-EXPORT int PGet(Image *img, int x, int y);
-EXPORT bool PasteImage(Image *dst, Image *src, int x, int y);
-EXPORT bool PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
-EXPORT bool CopyImage(Image *a, Image *b);
-EXPORT void PassthruImage(Image *img, int (*fn)(int x, int y, int col));
-EXPORT bool ScaleImage(Image *a, int nw, int nh, Image *img);
-EXPORT bool RotateImage(Image *a, float angle, Image *b);
-EXPORT void DrawLine(Image *img, int x0, int y0, int x1, int y1, int col);
-EXPORT void DrawCircle(Image *img, int xc, int yc, int r, int col, bool fill);
-EXPORT void DrawRect(Image *img, int x, int y, int w, int h, int col, bool fill);
-EXPORT void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, int col, bool fill);
+EXPORT void BSet(Image *img, int x, int y, Color col);
+EXPORT void PSet(Image *img, int x, int y, Color col);
+EXPORT Color PGet(Image *img, int x, int y);
+EXPORT void PasteImage(Image *dst, Image *src, int x, int y);
+EXPORT void PasteImageClip(Image *dst, Image *src, int x, int y, int rx, int ry, int rw, int rh);
+EXPORT Image* CopyImage(Image *b);
+EXPORT void PassthruImage(Image *img, int (*fn)(int x, int y, Color col));
+EXPORT Image* ScaleImage(Image *src, int nw, int nh);
+EXPORT Image* RotateImage(Image *src, float angle);
+EXPORT void DrawLine(Image *img, int x0, int y0, int x1, int y1, Color col);
+EXPORT void DrawCircle(Image *img, int xc, int yc, int r, Color col, bool fill);
+EXPORT void DrawRect(Image *img, int x, int y, int w, int h, Color col, bool fill);
+EXPORT void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, Color col, bool fill);
 
-EXPORT bool LoadImage(Image *out, const char *path);
-EXPORT bool LoadImageMemory(Image *out, const void *data, size_t length);
+EXPORT Image* LoadImage(const char *path);
+EXPORT Image* LoadImageMemory(const void *data, size_t length);
 EXPORT bool SaveImage(Image *img, const char *path);
+
+typedef struct {
+    sg_image sgi;
+    int w, h;
+} Texture;
+
+EXPORT Texture* LoadTextureFromImage(Image *img);
+EXPORT Texture* LoadTextureFromFile(const char *path);
+EXPORT Texture* CreateEmptyTexture(unsigned int w, unsigned int h);
+EXPORT void UpdateTexture(Texture *texture, Image *img);
+EXPORT void DestroyTexture(Texture *texture);
 
 typedef struct weeScene weeScene;
 
@@ -850,12 +844,22 @@ typedef struct wis {
 #if defined(WEE_POSIX)
     ino_t handleID;
 #else
-FILETIME writeTime;
+    FILETIME writeTime;
 #endif
     weeeeeeeeeeeeeeeeeeeeeeeeeeeee *context;
     weeScene *scene;
     struct wis *next;
 } weeInternalScene;
+
+typedef struct Entry {
+    int id;
+    void *data;
+    struct Entry *next, *prev;
+} StackEntry;
+
+typedef struct {
+    StackEntry *front, *back;
+} Stack;
 
 typedef struct {
     weeInternalScene *wis;
@@ -869,16 +873,18 @@ typedef struct {
     sg_pipeline pip;
     sg_bindings bind;
     sg_image color, depth;
+    
+    Stack commandStack;
 } weeState;
 
 struct weeScene {
     weeeeeeeeee *(*init)(weeState *);
-    void (*deinit)(weeState *, weeeeeeee *);
-    void (*reload)(weeState *, weeeeeeee *);
-    void (*background)(weeState *, weeee *);
-    void (*unload)(weeState *, weeeeeeee *);
-    void (*event)(weeState *, weeeeeeeee *, const sapp_event *);
-    bool (*frame)(weeState *, weeeeeeeee *, float);
+    void (*deinit)(weeState*, weeeeeeee*);
+    void (*reload)(weeState*, weeeeeeee*);
+    void (*background)(weeState*, weeee*);
+    void (*unload)(weeState*, weeeeeeee*);
+    void (*event)(weeState*, weeeeeeeee*, const sapp_event*);
+    bool (*frame)(weeState*, weeeeeeeee*, float);
 };
 
 EXPORT void weeInit(weeState *state);
@@ -886,6 +892,22 @@ EXPORT void weeCreateScene(weeState *state, const char *name, const char *path);
 EXPORT void weePushScene(weeState *state, const char *name);
 EXPORT void weePopScene(weeState *state);
 EXPORT void weeDestroyScene(weeState *state, const char *name);
+
+EXPORT void weeClearColor(weeState *state, Color color);
+EXPORT void weeViewport(weeState *state, int x, int y, int width, int height);
+EXPORT void weeScissorRect(weeState *state, int x, int y, int width, int height);
+
+EXPORT int weeCreateFramebuffer(weeState *state, int w, int h);
+EXPORT void weeDestroyFramebuffer(weeState *state, int id);
+EXPORT void weeEnableFramebuffer(weeState *state, int id);
+
+EXPORT void weePushPipeline(weeState *state, sg_pipeline pip);
+EXPORT void weePopPipeline(weeState *state);
+EXPORT void weeBlendMode(weeState *state, int mode);
+EXPORT void weeBeginPass(weeState *state);
+EXPORT void weeDraw(weeState *state, int baseElement, int elementCount, int instanceCount);
+EXPORT void weeEndPass(weeState *state);
+EXPORT void weeCommit(weeState *state);
 
 extern weeState state;
 

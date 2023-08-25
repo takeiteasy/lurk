@@ -52,7 +52,7 @@ SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,build/%.$(LIB_EXT), $(SCENES))
 SCENE=$(patsubst build/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
 SCENE_OUT=$@
 %.$(LIB_EXT): $(SCENES)
-	$(CC) -shared -fpic $(INCLUDE) -DWEE_STATE -fenable-matrix $(SCENE) $(SOURCES) -o $(SCENE_OUT)
+	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DWEE_STATE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
 
 scenes: $(SCENES_OUT)
 

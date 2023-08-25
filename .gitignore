@@ -4,3 +4,4 @@ build/
 *.xcodeproj/
 project_test.yml
 .test.json
+*.json
