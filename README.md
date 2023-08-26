@@ -23,7 +23,20 @@ Nothing to see yet
     - dirent_win32.h
 - [tidwall/hashmap.c](https://github.com/tidwall/hashmap.c) (MIT)
     - hashmap.h
-    
+- [nothings/stb](https://github.com/nothings/stb/tree/master) (MIT/Public Domain)
+    - stb_image.h
+    - stb_image_write.h
+- [phoboslab/qoi](https://github.com/phoboslab/qoi) (MIT)
+    - qoi.h
+
+## References
+
+- [raysan5/raylib](https://github.com/raysan5/raylib/)
+    - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)
+    - Immediate mode interface is based on [rlgl.h](https://github.com/raysan5/raylib/blob/master/src/rlgl.h)
+- [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)
+    - Hot-reloading libraries was based off this example
+
 ## License
 ```
 The MIT License (MIT)
