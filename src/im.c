@@ -104,29 +104,59 @@ void weeScissorRect(weeState *state, int x, int y, int width, int height) {
     StackAppend(&state->commandStack, SCISSOR_RECT_COMMAND, (void*)scissor);
 }
 
-int weeCreateFramebuffer(weeState *state, int w, int h) {
-    return 0;
+void weeMatrixMode(weeState *state, MatrixMode mode) {
+    switch (mode) {
+        case MATRIX_MODE_MODELVIEW:
+            state->currentMatrix = &state->modelViewMatrix;
+            break;
+        case MATRIX_MODE_PROJECTION:
+            state->currentMatrix = &state->projectionMatrix;
+            break;
+        case MATRIX_MODE_TEXTURE:
+            state->currentMatrix = &state->textureMatrix;
+            break;
+        default:
+            abort();
+    }
 }
 
-void weeDestroyFramebuffer(weeState *state, int id) {
+void weePushMatrix(weeState *state) {
+    state->currentMatrix = &state->matrixStack[state->matrixStackCounter++];
+    *state->currentMatrix = Mat44Identity();
+}
+
+void weePopMatrix(weeState *state) {
+    state->currentMatrix = &state->matrixStack[--state->matrixStackCounter];
+}
+
+void weeLoadIdentity(weeState *state) {
+    *state->currentMatrix = Mat44Identity();
+}
+
+void weeTranslateMatrix(weeState *state, float x, float y, float z) {
+    
+}
+
+void weeRotateMatirx(weeState *state, float angle, float x, float y, float z) {
 
 }
 
-void weeEnableFramebuffer(weeState *state, int id) {
+void weeScaleMatrix(weeState *state, float x, float y, float z) {
 
 }
 
-void weePushPipeline(weeState *state, sg_pipeline pip) {
+void weeMulMatrix(weeState *state, Mat44 mat) {
 
 }
 
-void weePopPipeline(weeState *state) {
+void weeLoadFrustum(weeState *state, double left, double right, double bottom, double top, double znear, double zfar) {
 
 }
 
-void weeBlendMode(weeState *state, int mode) {
+void weeLoadOrtho(weeState *state, double left, double right, double bottom, double top, double znear, double zfar) {
 
 }
+
 
 void weeBeginPass(weeState *state) {
 

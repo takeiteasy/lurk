@@ -341,12 +341,6 @@ EXPORT const char *ResolvePath(const char *path);
 #define S64Max ((int64_t)0x7FFFFFFFFFFFFFFF)
 #define S64Min ((int64_t)-1 - 0x7FFFFFFFFFFFFFFF)
 
-#define SWZL_MAP(V, VEC) VEC.V
-#define SWIZZLE(V, ...)                       \
-    {                                         \
-        MAP_LIST_UD(SWZL_MAP, V, __VA_ARGS__) \
-    }
-
 #define MATRIX_TYPES \
     X(2, 2)          \
     X(3, 3)          \
@@ -357,39 +351,10 @@ EXPORT const char *ResolvePath(const char *path);
 #define X(W, H)                                                        \
     typedef float __MATRIX_T(W, H) __attribute__((matrix_type(W, H))); \
     EXPORT __MATRIX_T(W, H) __MATRIX_D(W, H, Identity)(void);          \
+    EXPORT float __MATRIX_D(W, H, Trace)(__MATRIX_T(W, H));            \
     EXPORT __MATRIX_T(W, H) __MATRIX_D(W, H, Zero)(void);
 MATRIX_TYPES
 #undef X
-
-typedef union {
-    Mat22 mat;
-    struct {
-        //    0   1
-        float m0, m2; // 0
-        float m1, m3; // 1
-    };
-} Matrix2;
-
-typedef union {
-    Mat33 mat;
-    struct {
-        //    0   1   2
-        float m0, m3, m6; // 0
-        float m1, m4, m7; // 1
-        float m2, m5, m8; // 2
-    };
-} Matrix3;
-
-typedef union {
-    Mat44 mat;
-    struct {
-        //    0   1   2    3
-        float m0, m4, m8, m12;  // 0
-        float m1, m5, m9, m13;  // 1
-        float m2, m6, m10, m14; // 2
-        float m3, m7, m11, m15; // 3
-    };
-} Matrix;
 
 #define VECTOR_TYPES \
     X(2)             \
@@ -400,10 +365,13 @@ typedef union {
 #define __VEC_D(L, F) Vec##L##F
 #define X(L)                                                                           \
     typedef float __VEC_T(L) __attribute__((ext_vector_type(L)));                      \
+    typedef __VEC_T(L) Vector##L;                                                      \
+    typedef int Vec##L##i __attribute__((ext_vector_type(L)));                         \
     EXPORT __VEC_T(L) __VEC_D(L, Zero)(void);                                          \
     EXPORT __VEC_T(L) __VEC_D(L, New)(float x, ...);                                   \
     EXPORT void __VEC_D(L, Print)(__VEC_T(L) v);                                       \
     EXPORT float __VEC_D(L, Sum)(__VEC_T(L) v);                                        \
+    EXPORT bool __VEC_D(L, Equals)(__VEC_T(L) a, __VEC_T(L) b);                        \
     EXPORT float __VEC_D(L, LengthSqr)(__VEC_T(L) v);                                  \
     EXPORT float __VEC_D(L, Length)(__VEC_T(L) v);                                     \
     EXPORT float __VEC_D(L, Dot)(__VEC_T(L) v1, __VEC_T(L) v2);                        \
@@ -417,182 +385,64 @@ typedef union {
 VECTOR_TYPES
 #undef X
 
-typedef union {
-    struct {
-        float x;
-        float y;
-    };
-    float xy[2];
-    struct {
-        float u;
-        float v;
-    };
-    float uv[2];
-    struct {
-        float s;
-        float t;
-    };
-    float st[2];
-    float elements[2];
-    Vec2f vec;
-} Vector2f;
-
-typedef union {
-    struct {
-        float x;
-        float y;
-        float z;
-    };
-    float xyz[3];
-    struct {
-        Vector2f xy;
-        float _;
-    };
-    struct {
-        float __;
-        Vector2f yz;
-    };
-    struct {
-        float r;
-        float g;
-        float b;
-    };
-    float rgb[3];
-    struct {
-        Vector2f rg;
-        float ___;
-    };
-    struct {
-        float ____;
-        Vector2f gb;
-    };
-    struct {
-        float s;
-        float t;
-        float p;
-    };
-    float stp[3];
-    struct {
-        Vector2f st;
-        float _____;
-    };
-    struct {
-        float ______;
-        Vector2f tp;
-    };
-    float elements[3];
-    Vec3f vec;
-} Vector3f;
-
-typedef union {
-    struct {
-        float x;
-        float y;
-        float z;
-        float w;
-    };
-    float xyzw[4];
-    struct {
-        Vector2f xy;
-        Vector2f zw;
-    };
-    struct {
-        Vector3f xyz;
-        float _;
-    };
-    struct {
-        float __;
-        Vector3f yzw;
-    };
-    struct {
-        float r;
-        float g;
-        float b;
-        float a;
-    };
-    float rgba[4];
-    struct {
-        Vector2f rg;
-        Vector2f ba;
-    };
-    struct {
-        Vector3f rgb;
-        float ___;
-    };
-    struct {
-        float ____;
-        Vector3f gba;
-    };
-    struct {
-        float s;
-        float t;
-        float p;
-        float q;
-    };
-    float stpq[4];
-    struct {
-        Vector2f st;
-        Vector2f pq;
-    };
-    struct {
-        Vector3f stp;
-        float _____;
-    };
-    struct {
-        float ______;
-        Vector3f tpq;
-    };
-    float elements[4];
-    Vec4f vec;
-} Vector4f;
-
-typedef float VecNf[];
-typedef int VecNi[];
-
-typedef Vec4f Quat;
-typedef Vector4f Quaternion;
-#define X(L) typedef int Vec##L##i __attribute__((ext_vector_type(L)));
-VECTOR_TYPES
-#undef X
+typedef Vec4f Quaternion;
 typedef Vec2i Position;
-typedef Matrix Matrix4;
+typedef Mat44 Matrix;
 
-#define Vec(v) (v.vec)
-#define Mat(m) (m.mat)
-#define Vector2(v) ((Vector2f){.vec = v})
-#define Vector3(v) ((Vector3f){.vec = v})
-#define Vector4(v) ((Vector4f){.vec = v})
-
-#define X(N) Matrix##N Matrix##N##Identity(void);
-VECTOR_TYPES
-#undef X
-#define MatrixIdentity Matrix4Identity
-
-#define Vector2Angle(v1, v2) Vec2Angle(Vec(v1), Vec(v2))
 EXPORT float Vec2Angle(Vec2f v1, Vec2f v2);
-#define Vector2Rotate(v, angle) Vector2(Vec2Rotate(Vec(v), angle))
 EXPORT Vec2f Vec2Rotate(Vec2f v, float angle);
-#define Vector2MoveTowards(v, target, maxDistance) Vector2(Vec2MoveTowards(Vec(v), Vec(target), maxDistance))
 EXPORT Vec2f Vec2MoveTowards(Vec2f v, Vec2f target, float maxDistance);
-#define Vector2Reflect(v, normal) Vector2(Vec2Reflect(Vec(v), Vec(normal)))
 EXPORT Vec2f Vec2Reflect(Vec2f v, Vec2f normal);
 
-#define Vector3Reflect(v, normal) Vector3(Vec3Reflect(Vec(v), Vec(normal)))
 EXPORT Vec3f Vec3Reflect(Vec3f v, Vec3f normal);
-#define Vector3Cross(v, v2) Vector3(Vec3Cross(Vec(v), Vec(v2)))
 EXPORT Vec3f Vec3Cross(Vec3f v1, Vec3f v2);
-#define Vector3Perpendicular(v) Vector3(Vec3Perpendicular(Vec(v)))
 EXPORT Vec3f Vec3Perpendicular(Vec3f v);
-#define Vector3Angle(v1, v2) Vec3Angle(Vec(v1), Vec(v2))
 EXPORT float Vec3Angle(Vec3f v1, Vec3f v2);
-#define Vector3RotateByQuaternion(v, q) Vector3(Vec3RotateByQuaternion(Vec(v), Vec(q)))
-EXPORT Vec3f Vec3RotateByQuaternion(Vec3f v, Quat q);
-#define Vector3RotateByAxisAngle(v, axis, angle) Vector3(Vec3RotateByAxisAngle(Vec(v), Vec(axis), angle))
+EXPORT Vec3f Vec3RotateByQuaternion(Vec3f v, Quaternion q);
 EXPORT Vec3f Vec3RotateByAxisAngle(Vec3f v, Vec3f axis, float angle);
-#define Vector3Refract(v, n, r) Vector3(Vec3Refract(Vec(v), Vec(n), r))
 EXPORT Vec3f Vec3Refract(Vec3f v, Vec3f n, float r);
+EXPORT Vec3f Vec3Transform(Vec3f v, Matrix mat);
+EXPORT Vec3f Vec3Barycentre(Vec3f p, Vec3f a, Vec3f b, Vec3f c);
+EXPORT Vec3f Vec3Unproject(Vec3f source, Matrix projection, Matrix view);
 
-EXPORT int FloatCmp(float a, float b);
+#define QuaternionZero(...) Vec4Zero(__VA_ARGS__)
+#define QuaternionNew(...) Vec4New(__VA_ARGS__)
+#define QuaternionPrint(...) Vec4Print(__VA_ARGS__)
+#define QuaternionSum(...) Vec4Sum(__VA_ARGS__)
+#define QuaternionLengthSqr(...) Vec4LengthSqr(__VA_ARGS__)
+#define QuaternionLength(...) Vec4Length(__VA_ARGS__)
+#define QuaternionDot(...) Vec4Dot(__VA_ARGS__)
+#define QuaternionNormalize(...) Vec4Normalize(__VA_ARGS__)
+#define QuaternionDistSqr(...) Vec4DistSqr(__VA_ARGS__)
+#define QuaternionDist(...) Vec4Dist(__VA_ARGS__)
+#define QuaternionClamp(...) Vec4Clamp(__VA_ARGS__)
+#define QuaternionMin(...) Vec4Min(__VA_ARGS__)
+#define QuaternionMax(...) Vec4Max(__VA_ARGS__)
+#define QuaternionLerp(...) Vec4Lerp(__VA_ARGS__)
+
+EXPORT Quaternion QuaternionIdentity(void);
+EXPORT Quaternion QuaternionMultiply(Quaternion q1, Quaternion q2);
+EXPORT Quaternion QuaternionInvert(Quaternion q);
+EXPORT Quaternion QuaternionFromVec3ToVec3(Vec3f from, Vec3f to);
+EXPORT Quaternion QuaternionFromMatrix(Matrix mat);
+EXPORT Matrix QuaternionToMatrix(Quaternion q);
+EXPORT Quaternion QuaternionFromAxisAngle(Vector3 axis, float angle);
+EXPORT void QuaternionToAxisAngle(Quaternion q, Vector3 *outAxis, float *outAngle);
+EXPORT Quaternion QuaternionFromEuler(float pitch, float yaw, float roll);
+EXPORT Vector3 QuaternionToEuler(Quaternion q);
+EXPORT Quaternion QuaternionTransform(Quaternion q, Matrix mat);
+EXPORT bool QuaternionEquals(Quaternion p, Quaternion q);
+
+EXPORT float MatrixDetermint(Matrix mat);
+EXPORT Matrix MatrixInvert(Matrix mat);
+EXPORT Matrix MatrixTranslation(Vec3f v);
+EXPORT Matrix MatrixRotation(Vec3f axis, float angle);
+EXPORT Matrix MatrixScaling(Vec3f scale);
+EXPORT Matrix MatrixFrustum(float left, float right, float bottom, float top, float near, float far);
+EXPORT Matrix MatrixPerspective(float fovY, float aspect, float nearPlane, float farPlane);
+EXPORT Matrix MatrixOrtho(float left, float right, float bottom, float top, float nearPlane, float farPlane);
+
+EXPORT bool FloatCmp(float a, float b);
 EXPORT int Min(int a, int b);
 EXPORT int Max(int a, int b);
 EXPORT int Clamp(int n, int min, int max);
@@ -861,6 +711,10 @@ typedef struct {
     StackEntry *front, *back;
 } Stack;
 
+#if !defined(WEE_MAX_MATRIX_STACK)
+#define WEE_MAX_MATRIX_STACK 32
+#endif
+
 typedef struct {
     weeInternalScene *wis;
     struct hashmap *map;
@@ -875,6 +729,9 @@ typedef struct {
     sg_image color, depth;
     
     Stack commandStack;
+    Mat44 matrixStack[WEE_MAX_MATRIX_STACK];
+    int matrixStackCounter;
+    Mat44 projectionMatrix, modelViewMatrix, textureMatrix, *currentMatrix;
 } weeState;
 
 struct weeScene {
@@ -897,13 +754,23 @@ EXPORT void weeClearColor(weeState *state, Color color);
 EXPORT void weeViewport(weeState *state, int x, int y, int width, int height);
 EXPORT void weeScissorRect(weeState *state, int x, int y, int width, int height);
 
-EXPORT int weeCreateFramebuffer(weeState *state, int w, int h);
-EXPORT void weeDestroyFramebuffer(weeState *state, int id);
-EXPORT void weeEnableFramebuffer(weeState *state, int id);
+typedef enum {
+    MATRIX_MODE_MODELVIEW,
+    MATRIX_MODE_PROJECTION,
+    MATRIX_MODE_TEXTURE
+} MatrixMode;
 
-EXPORT void weePushPipeline(weeState *state, sg_pipeline pip);
-EXPORT void weePopPipeline(weeState *state);
-EXPORT void weeBlendMode(weeState *state, int mode);
+EXPORT void weeMatrixMode(weeState *state, MatrixMode mode);
+EXPORT void weePushMatrix(weeState *state);
+EXPORT void weePopMatrix(weeState *state);
+EXPORT void weeLoadIdentity(weeState *state);
+EXPORT void weeTranslateMatrix(weeState *state, float x, float y, float z);
+EXPORT void weeRotateMatirx(weeState *state, float angle, float x, float y, float z);
+EXPORT void weeScaleMatrix(weeState *state, float x, float y, float z);
+EXPORT void weeMulMatrix(weeState *state, Mat44 mat);
+EXPORT void weeLoadFrustum(weeState *state, double left, double right, double bottom, double top, double znear, double zfar);
+EXPORT void weeLoadOrtho(weeState *state, double left, double right, double bottom, double top, double znear, double zfar);
+
 EXPORT void weeBeginPass(weeState *state);
 EXPORT void weeDraw(weeState *state, int baseElement, int elementCount, int instanceCount);
 EXPORT void weeEndPass(weeState *state);

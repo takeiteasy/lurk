@@ -7,28 +7,39 @@
 
 #include "wee.h"
 
-#define X(W, H)                                         \
-    __MATRIX_T(W, H) __MATRIX_D(W, H, Identity)(void) { \
-        __MATRIX_T(W, H) m;                             \
-        memset(&m, 0, sizeof(float) * W * H);           \
-        if (W == H)                                     \
-            for (int i = 0; i < W; i++)                 \
-                m[i][i] = 1.f;                          \
-        return m;                                       \
-    }                                                   \
-    __MATRIX_T(W, H) __MATRIX_D(W, H, Zero)(void) {     \
-        __MATRIX_T(W, H) m;                             \
-        memset(&m, 0, sizeof(float) * W * H);           \
-        return m;                                       \
+#define X(W, H)                                                      \
+    __MATRIX_T(W, H) __MATRIX_D(W, H, Identity)(void)                \
+    {                                                                \
+        __MATRIX_T(W, H) m;                                          \
+        memset(&m, 0, sizeof(float) * W * H);                        \
+        if (W == H)                                                  \
+            for (int i = 0; i < W; i++)                              \
+                m[i][i] = 1.f;                                       \
+        return m;                                                    \
+    }                                                                \
+    float __MATRIX_D(W, H, TRACE)(__MATRIX_T(W, H) m)                \
+    {                                                                \
+        float r = 0.f;                                               \
+        if (W == H)                                                  \
+            for (int i = 0; i < W; i++)                              \
+                r += m[i][i];                                        \
+        return r;                                                    \
+    }                                                                \
+    __MATRIX_T(W, H) __MATRIX_D(W, H, Transpose)(__MATRIX_T(W, H) m) \
+    {                                                                \
+        __MATRIX_T(W, H) result = __MATRIX_D(W, H, Zero)();          \
+        for (int x = 0; x < W; x++)                                  \
+            for (int y = 0; y < H; y++)                              \
+                result[x][y] = m[y][x];                              \
+        return result;                                               \
+    }                                                                \
+    __MATRIX_T(W, H) __MATRIX_D(W, H, Zero)(void)                    \
+    {                                                                \
+        __MATRIX_T(W, H) m;                                          \
+        memset(&m, 0, sizeof(float) * W * H);                        \
+        return m;                                                    \
     }
 MATRIX_TYPES
-#undef X
-
-#define X(N)                                                        \
-    Matrix##N Matrix##N##Identity(void) {                           \
-        return (Matrix##N) { .mat = __MATRIX_D(N, N, Identity)() }; \
-    }
-VECTOR_TYPES
 #undef X
 
 #define X(L)                                                                   \
@@ -61,6 +72,14 @@ VECTOR_TYPES
         float r = 0.f;                                                         \
         for (int i = 0; i < L; i++)                                            \
             r += v[i];                                                         \
+        return r;                                                              \
+    }                                                                          \
+    bool __VEC_D(L, Equals)(__VEC_T(L) a, __VEC_T(L) b)                        \
+    {                                                                          \
+        bool r = true;                                                         \
+        for (int i = 0; i < L; i++)                                            \
+            if (!FloatCmp(a[i], b[i]))                                         \
+                return false;                                                  \
         return r;                                                              \
     }                                                                          \
     float __VEC_D(L, LengthSqr)(__VEC_T(L) v)                                  \
@@ -169,7 +188,7 @@ float Vec3Angle(Vec3f v1, Vec3f v2) {
     return atan2f(Vec3Length(Vec3Cross(v1, v2)), Vec3Dot(v1, v2));
 }
 
-Vec3f Vec3RotateByQuaternion(Vec3f v, Quat q) {
+Vec3f Vec3RotateByQuaternion(Vec3f v, Quaternion q) {
     return (Vec3f) {
         v.x*(q.x*q.x + q.w*q.w - q.y*q.y - q.z*q.z) + v.y*(2*q.x*q.y - 2*q.w*q.z) + v.z*(2*q.x*q.z + 2*q.w*q.y),
         v.x*(2*q.w*q.z + 2*q.x*q.y) + v.y*(q.w*q.w - q.x*q.x + q.y*q.y - q.z*q.z) + v.z*(-2*q.w*q.x + 2*q.y*q.z),
@@ -195,7 +214,380 @@ Vec3f Vec3Refract(Vec3f v, Vec3f n, float r) {
     return d < 0 ? Vec3Zero() : r * v - (r * dot + sqrtf(d)) * n;
 }
 
-int FloatCmp(float a, float b) {
+Vec3f Vec3Transform(Vec3f v, Matrix mat) {
+    return (Vec3f) {
+        mat[0][0]*v.x + mat[0][1]*v.y + mat[0][2]*v.z + mat[0][3],
+        mat[1][0]*v.x + mat[1][1]*v.y + mat[1][2]*v.z + mat[1][3],
+        mat[2][0]*v.x + mat[2][1]*v.y + mat[2][2]*v.z + mat[2][3]
+    };
+}
+
+Vec3f Vec3Barycentre(Vec3f p, Vec3f a, Vec3f b, Vec3f c) {
+    Vector3 v0 = b - a;
+    Vector3 v1 = c - a;
+    Vector3 v2 = p - a;
+    float d00 = Vec3Dot(v0, v1);
+    float d01 = Vec3Dot(v1, v1);
+    float d11 = Vec3Dot(v1, v1);
+    float d20 = Vec3Dot(v2, v0);
+    float d21 = Vec3Dot(v2, v1);
+    float denom = d00*d11 - d01*d01;
+    float y = (d11*d20 - d01*d21)/denom;
+    float z = (d00*d21 - d01*d20)/denom;
+    return (Vec3f) {1.0f - (z + y), y, z};
+}
+
+Vector3 Vec3Unproject(Vector3 source, Matrix projection, Matrix view) {
+    Quaternion p = QuaternionTransform((Quaternion){source.x, source.y, source.z, 1.f }, MatrixInvert(view * projection));
+    return (Vec3f) {
+        p.x / p.w,
+        p.y / p.w,
+        p.z / p.w
+    };
+}
+
+Quaternion QuaternionIdentity(void) {
+    return (Quaternion){0.f, 0.f, 0.f, 1.f};
+}
+
+Quaternion QuaternionMultiply(Quaternion q1, Quaternion q2) {
+    float qax = q1.x, qay = q1.y, qaz = q1.z, qaw = q1.w;
+    float qbx = q2.x, qby = q2.y, qbz = q2.z, qbw = q2.w;
+    return (Quaternion) {
+        qax*qbw + qaw*qbx + qay*qbz - qaz*qby,
+        qay*qbw + qaw*qby + qaz*qbx - qax*qbz,
+        qaz*qbw + qaw*qbz + qax*qby - qay*qbx,
+        qaw*qbw - qax*qbx - qay*qby - qaz*qbz
+    };
+}
+
+Quaternion QuaternionInvert(Quaternion q) {
+    float lsqr = QuaternionLengthSqr(q);
+    Quaternion result = q;
+    if (lsqr != 0.f) {
+        float inv = 1.f / lsqr;
+        result *= (Vec4f){-inv, -inv, -inv, inv};
+    }
+    return result;
+}
+
+Quaternion QuaternionFromVec3ToVec3(Vec3f from, Vec3f to) {
+    Vec3f cross = Vec3Cross(from, to);
+    return QuaternionNormalize(QuaternionNew(cross.x, cross.y, cross.z, 1.f + Vec3Dot(from, to)));
+}
+
+Quaternion QuaternionFromMatrix(Matrix mat) {
+    float fourWSquaredMinus1 = mat[0][0] + mat[1][1] + mat[2][2];
+    float fourXSquaredMinus1 = mat[0][0] - mat[1][1] - mat[2][2];
+    float fourYSquaredMinus1 = mat[1][1] - mat[0][0] - mat[2][2];
+    float fourZSquaredMinus1 = mat[2][2] - mat[0][0] - mat[1][1];
+
+    int biggestIndex = 0;
+    float fourBiggestSquaredMinus1 = fourWSquaredMinus1;
+    if (fourXSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourXSquaredMinus1;
+        biggestIndex = 1;
+    }
+    if (fourYSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourYSquaredMinus1;
+        biggestIndex = 2;
+    }
+    if (fourZSquaredMinus1 > fourBiggestSquaredMinus1) {
+        fourBiggestSquaredMinus1 = fourZSquaredMinus1;
+        biggestIndex = 3;
+    }
+
+    float biggestVal = sqrtf(fourBiggestSquaredMinus1 + 1.f) * .5f;
+    float mult = .25f / biggestVal;
+    switch (biggestIndex)
+    {
+        case 0:
+            return (Quaternion) {
+                (mat[2][1] - mat[1][2]) * mult,
+                (mat[0][2] - mat[2][0]) * mult,
+                (mat[1][0] - mat[0][1]) * mult,
+                biggestVal
+            };
+            break;
+        case 1:
+            return (Quaternion) {
+                biggestVal,
+                (mat[1][0] + mat[0][1]) * mult,
+                (mat[0][2] + mat[2][0]) * mult,
+                (mat[2][1] - mat[1][2]) * mult
+            };
+        case 2:
+            return (Quaternion) {
+                biggestVal,
+                (mat[1][0] + mat[0][1]) * mult,
+                (mat[0][2] + mat[2][0]) * mult,
+                (mat[2][1] - mat[1][2]) * mult
+            };
+        case 3:
+            return (Quaternion) {
+                biggestVal,
+                (mat[1][0] + mat[0][1]) * mult,
+                (mat[0][2] + mat[2][0]) * mult,
+                (mat[2][1] - mat[1][2]) * mult
+            };
+        default:
+            return QuaternionZero();
+    }
+}
+
+Matrix QuaternionToMatrix(Quaternion q) {
+    float a2 = q.x*q.x;
+    float b2 = q.y*q.y;
+    float c2 = q.z*q.z;
+    float ac = q.x*q.z;
+    float ab = q.x*q.y;
+    float bc = q.y*q.z;
+    float ad = q.w*q.x;
+    float bd = q.w*q.y;
+    float cd = q.w*q.z;
+    
+    Matrix result = Mat44Identity();
+    result[0][0] = 1 - 2*(b2 + c2);
+    result[1][0] = 2*(ab + cd);
+    result[2][0] = 2*(ac - bd);
+    
+    result[0][1] = 2*(ab - cd);
+    result[1][1] = 1 - 2*(a2 + c2);
+    result[2][1] = 2*(bc + ad);
+    
+    result[0][2] = 2*(ac + bd);
+    result[1][2] = 2*(bc - ad);
+    result[2][2] = 1 - 2*(a2 + b2);
+    return result;
+}
+
+Quaternion QuaternionFromAxisAngle(Vector3 axis, float angle) {
+    float axisLength = Vec3Length(axis);
+    if (axisLength == 0.f)
+        return QuaternionIdentity();
+    
+    axis = Vec3Normalize(axis);
+    angle *= .5f;
+    float sinres = sinf(angle);
+    float cosres = cosf(angle);
+    return (Quaternion) {
+        axis.x*sinres,
+        axis.y*sinres,
+        axis.z*sinres,
+        cosres
+    };
+}
+
+void QuaternionToAxisAngle(Quaternion q, Vector3 *outAxis, float *outAngle) {
+    if (fabsf(q.w) > 1.0f)
+        q = QuaternionNormalize(q);
+    float resAngle = 2.0f*acosf(q.w);
+    float den = sqrtf(1.0f - q.w*q.w);
+    Vec3f qxyz = (Vec3f){q.x, q.y, q.z};
+    Vec3f resAxis = den > EPSILON ? qxyz / den : (Vec3f){1.f, 0.f, 0.f};
+    *outAxis = resAxis;
+    *outAngle = resAngle;
+}
+
+Quaternion QuaternionFromEuler(float pitch, float yaw, float roll) {
+    Quaternion result = { 0 };
+
+    float x0 = cosf(pitch*0.5f);
+    float x1 = sinf(pitch*0.5f);
+    float y0 = cosf(yaw*0.5f);
+    float y1 = sinf(yaw*0.5f);
+    float z0 = cosf(roll*0.5f);
+    float z1 = sinf(roll*0.5f);
+    
+    return (Quaternion) {
+        x1*y0*z0 - x0*y1*z1,
+        x0*y1*z0 + x1*y0*z1,
+        x0*y0*z1 - x1*y1*z0,
+        x0*y0*z0 + x1*y1*z1
+    };
+}
+
+Vector3 QuaternionToEuler(Quaternion q) {
+    // Roll (x-axis rotation)
+    float x0 = 2.0f*(q.w*q.x + q.y*q.z);
+    float x1 = 1.0f - 2.0f*(q.x*q.x + q.y*q.y);
+    // Pitch (y-axis rotation)
+    float y0 = 2.0f*(q.w*q.y - q.z*q.x);
+    y0 = y0 > 1.0f ? 1.0f : y0;
+    y0 = y0 < -1.0f ? -1.0f : y0;
+    // Yaw (z-axis rotation)
+    float z0 = 2.0f*(q.w*q.z + q.x*q.y);
+    float z1 = 1.0f - 2.0f*(q.y*q.y + q.z*q.z);
+    return (Vec3f) {
+        atan2f(x0, x1),
+        asinf(y0),
+        atan2f(z0, z1)
+    };
+}
+
+Quaternion QuaternionTransform(Quaternion q, Matrix mat) {
+    return (Quaternion) {
+        mat[0][0]*q.x + mat[0][1]*q.y + mat[0][2]*q.z + mat[0][3]*q.w,
+        mat[1][0]*q.x + mat[1][1]*q.y + mat[1][2]*q.z + mat[1][3]*q.w,
+        mat[2][0]*q.x + mat[2][1]*q.y + mat[2][2]*q.z + mat[2][3]*q.w,
+        mat[3][0]*q.x + mat[3][1]*q.y + mat[3][2]*q.z + mat[3][3]*q.w
+    };
+}
+
+bool QuaternionEquals(Quaternion p, Quaternion q) {
+    return (((fabsf(p.x - q.x)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.x), fabsf(q.x))))) && ((fabsf(p.y - q.y)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.y), fabsf(q.y))))) && ((fabsf(p.z - q.z)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.z), fabsf(q.z))))) && ((fabsf(p.w - q.w)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.w), fabsf(q.w)))))) || (((fabsf(p.x + q.x)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.x), fabsf(q.x))))) && ((fabsf(p.y + q.y)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.y), fabsf(q.y))))) && ((fabsf(p.z + q.z)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.z), fabsf(q.z))))) && ((fabsf(p.w + q.w)) <= (EPSILON*fmaxf(1.0f, fmaxf(fabsf(p.w), fabsf(q.w))))));
+}
+
+float MatrixDetermint(Matrix mat) {
+    return mat[0][3]*mat[1][2]*mat[2][1]*mat[3][0] - mat[0][2]*mat[1][3]*mat[2][1]*mat[3][0] - mat[0][3]*mat[1][1]*mat[2][2]*mat[3][0] + mat[0][1]*mat[1][3]*mat[2][2]*mat[3][0] + mat[0][2]*mat[1][1]*mat[2][3]*mat[3][0] - mat[0][1]*mat[1][2]*mat[2][3]*mat[3][0] - mat[0][3]*mat[1][2]*mat[2][0]*mat[3][1] + mat[0][2]*mat[1][3]*mat[2][0]*mat[3][1] + mat[0][3]*mat[1][0]*mat[2][2]*mat[3][1] - mat[0][0]*mat[1][3]*mat[2][2]*mat[3][1] - mat[0][2]*mat[1][0]*mat[2][3]*mat[3][1] + mat[0][0]*mat[1][2]*mat[2][3]*mat[3][1] + mat[0][3]*mat[1][1]*mat[2][0]*mat[3][2] - mat[0][1]*mat[1][3]*mat[2][0]*mat[3][2] - mat[0][3]*mat[1][0]*mat[2][1]*mat[3][2] + mat[0][0]*mat[1][3]*mat[2][1]*mat[3][2] + mat[0][1]*mat[1][0]*mat[2][3]*mat[3][2] - mat[0][0]*mat[1][1]*mat[2][3]*mat[3][2] - mat[0][2]*mat[1][1]*mat[2][0]*mat[3][3] + mat[0][1]*mat[1][2]*mat[2][0]*mat[3][3] + mat[0][2]*mat[1][0]*mat[2][1]*mat[3][3] - mat[0][0]*mat[1][2]*mat[2][1]*mat[3][3] - mat[0][1]*mat[1][0]*mat[2][2]*mat[3][3] + mat[0][0]*mat[1][1]*mat[2][2]*mat[3][3];
+}
+
+Matrix MatrixInvert(Matrix mat) {
+    float b00 = mat[0][0]*mat[1][1] - mat[1][0]*mat[0][1];
+    float b01 = mat[0][0]*mat[2][1] - mat[2][0]*mat[0][1];
+    float b02 = mat[0][0]*mat[3][1] - mat[3][0]*mat[0][1];
+    float b03 = mat[1][0]*mat[2][1] - mat[2][0]*mat[1][1];
+    float b04 = mat[1][0]*mat[3][1] - mat[3][0]*mat[1][1];
+    float b05 = mat[2][0]*mat[3][1] - mat[3][0]*mat[2][1];
+    float b06 = mat[0][2]*mat[1][3] - mat[1][2]*mat[0][3];
+    float b07 = mat[0][2]*mat[2][3] - mat[2][2]*mat[0][3];
+    float b08 = mat[0][2]*mat[3][3] - mat[3][2]*mat[0][3];
+    float b09 = mat[1][2]*mat[2][3] - mat[2][2]*mat[1][3];
+    float b10 = mat[1][2]*mat[3][3] - mat[3][2]*mat[1][3];
+    float b11 = mat[2][2]*mat[3][3] - mat[3][2]*mat[2][3];
+    float invDet = 1.0f/(b00*b11 - b01*b10 + b02*b09 + b03*b08 - b04*b07 + b05*b06);
+    
+    Matrix result = Mat44Zero();
+    result[0][0] = (mat[1][1]*b11 - mat[2][1]*b10 + mat[3][1]*b09)*invDet;
+    result[1][0] = (-mat[1][0]*b11 + mat[2][0]*b10 - mat[3][0]*b09)*invDet;
+    result[2][0] = (mat[1][3]*b05 - mat[2][3]*b04 + mat[3][3]*b03)*invDet;
+    result[3][0] = (-mat[1][2]*b05 + mat[2][2]*b04 - mat[3][2]*b03)*invDet;
+    result[0][1] = (-mat[0][1]*b11 + mat[2][1]*b08 - mat[3][1]*b07)*invDet;
+    result[1][1] = (mat[0][0]*b11 - mat[2][0]*b08 + mat[3][0]*b07)*invDet;
+    result[2][1] = (-mat[0][3]*b05 + mat[2][3]*b02 - mat[3][3]*b01)*invDet;
+    result[3][1] = (mat[0][2]*b05 - mat[2][2]*b02 + mat[3][2]*b01)*invDet;
+    result[0][2] = (mat[0][1]*b10 - mat[1][1]*b08 + mat[3][1]*b06)*invDet;
+    result[1][2] = (-mat[0][0]*b10 + mat[1][0]*b08 - mat[3][0]*b06)*invDet;
+    result[2][2] = (mat[0][3]*b04 - mat[1][3]*b02 + mat[3][3]*b00)*invDet;
+    result[3][2] = (-mat[0][2]*b04 + mat[1][2]*b02 - mat[3][2]*b00)*invDet;
+    result[0][3] = (-mat[0][1]*b09 + mat[1][1]*b07 - mat[2][1]*b06)*invDet;
+    result[1][3] = (mat[0][0]*b09 - mat[1][0]*b07 + mat[2][0]*b06)*invDet;
+    result[2][3] = (-mat[0][3]*b03 + mat[1][3]*b01 - mat[2][3]*b00)*invDet;
+    result[3][3] = (mat[0][2]*b03 - mat[1][2]*b01 + mat[2][2]*b00)*invDet;
+    return result;
+}
+
+Matrix MatrixTranslation(Vec3f v) {
+    Matrix result = Mat44Identity();
+    result[0][3] = v.x;
+    result[1][3] = v.y;
+    result[2][3] = v.z;
+    return result;
+}
+
+Matrix MatrixRotation(Vec3f axis, float angle) {
+    Vec3f a = Vec3LengthSqr(axis);
+    float s = sinf(angle);
+    float c = cosf(angle);
+    float t = 1.f - c;
+    
+    Matrix result = Mat44Identity();
+    result[0][0] = a.x*a.x*t + c;
+    result[1][0] = a.y*a.x*t + a.z*s;
+    result[2][0] = a.z*a.x*t - a.y*s;
+    result[0][1] = a.x*a.y*t - a.z*s;
+    result[1][1] = a.y*a.y*t + c;
+    result[2][1] = a.z*a.y*t + a.x*s;
+    result[0][2] = a.x*a.z*t + a.y*s;
+    result[1][2] = a.y*a.z*t - a.x*s;
+    result[2][2] = a.z*a.z*t + c;
+    return result;
+}
+
+Matrix MatrixScaling(Vec3f scale) {
+    Matrix result = Mat44Zero();
+    result[0][0] = scale.x;
+    result[1][1] = scale.y;
+    result[2][2] = scale.z;
+    result[3][3] = 1.f;
+    return result;
+}
+
+Matrix MatrixFrustum(float left, float right, float bottom, float top, float near, float far) {
+    float rl = right - left;
+    float tb = top - bottom;
+    float fn = far - near;
+    
+    Matrix result = Mat44Zero();
+    result[0][0] = (near*2.0f)/rl;
+    result[1][1] = (near*2.0f)/tb;
+    result[0][2] = (right + left)/rl;
+    result[1][2] = (top + bottom)/tb;
+    result[2][2] = -(far + near)/fn;
+    result[3][2] = -1.0f;
+    result[2][3] = -(far*near*2.0f)/fn;
+    return result;
+}
+
+Matrix MatrixPerspective(float fovY, float aspect, float nearPlane, float farPlane) {
+    float top = nearPlane*tan(fovY*0.5);
+    float bottom = -top;
+    float right = top*aspect;
+    float left = -right;
+    float rl = right - left;
+    float tb = top - bottom;
+    float fn = farPlane - nearPlane;
+    
+    Matrix result = Mat44Zero();
+    result[0][0] = (nearPlane*2.0f)/rl;
+    result[1][1] = (nearPlane*2.0f)/tb;
+    result[0][2] = (right + left)/rl;
+    result[1][2] = (top + bottom)/tb;
+    result[2][2] = -(farPlane + nearPlane)/fn;
+    result[3][2] = -1.0f;
+    result[2][3] = -(farPlane*nearPlane*2.0f)/fn;
+    return result;
+}
+
+Matrix MatrixOrtho(float left, float right, float bottom, float top, float nearPlane, float farPlane) {
+    float rl = right - left;
+    float tb = top - bottom;
+    float fn = farPlane - nearPlane;
+
+    Matrix result = Mat44Zero();
+    result[0][0] = 2.0f/rl;
+    result[1][1] = 2.0f/tb;
+    result[2][2] = -2.0f/fn;
+    result[0][3] = -(left + right)/rl;
+    result[1][3] = -(top + bottom)/tb;
+    result[2][3] = -(farPlane + nearPlane)/fn;
+    result[3][3] = 1.0f;
+    return result;
+}
+
+Matrix MatrixLookAt(Vec3f eye, Vec3f target, Vec3f up) {
+    Vec3f vz = Vec3Normalize(eye - target);
+    Vec3f vx = Vec3Normalize(Vec3Cross(up, vz));
+    Vec3f vy = Vec3Cross(vz, vx);
+    
+    Matrix result = Mat44Zero();
+    result[0][0] = vx.x;
+    result[1][0] = vy.x;
+    result[2][0] = vz.x;
+    result[0][1] = vx.y;
+    result[1][1] = vy.y;
+    result[2][1] = vz.y;
+    result[0][2] = vx.z;
+    result[1][2] = vy.z;
+    result[2][2] = vz.z;
+    result[0][3] = -Vec3Dot(vx, eye);
+    result[1][3] = -Vec3Dot(vy, eye);
+    result[2][3] = -Vec3Dot(vz, eye);
+    result[3][3] = 1.0f;
+    return result;
+}
+
+bool FloatCmp(float a, float b) {
     return (fabsf(a - b)) <= (EPSILON * fmaxf(1.0f, fmaxf(fabsf(a), fabsf(b))));
 }
 
