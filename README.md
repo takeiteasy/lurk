@@ -36,6 +36,8 @@ Nothing to see yet
     - Immediate mode interface is based on [rlgl.h](https://github.com/raysan5/raylib/blob/master/src/rlgl.h)
 - [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)
     - Hot-reloading libraries was based off this example
+- [TylerGlaiel/FrameTimingControl](https://github.com/TylerGlaiel/FrameTimingControl)
+    - Game loop timing based off the article ["How to make your game run at 60fps"](https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75)
 
 ## License
 ```
