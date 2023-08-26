@@ -171,6 +171,9 @@ typedef enum bool {
 #include "jim.h"
 #include "mjson.h"
 #include "hashmap.h"
+#include "qoi.h"
+#include "stb_image.h"
+#include "stb_image_write.h"
 
 #if !defined(MAX_PATH)
 #if defined(WEE_MAC)
@@ -223,14 +226,6 @@ typedef enum bool {
     X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
     X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
     X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
-
-#define weak __block
-
-#define defer_merge(a, b) a##b
-#define defer_varname(a) defer_merge(defer_scopevar_, a)
-#define defer __attribute__((unused)) __attribute__((__cleanup__(defer_cleanup))) void (^defer_varname(__COUNTER__))(void) = ^
-
-#define dtor(destructor) __attribute__((__cleanup__(destructor)))
 
 // Taken from `map-macro` -- https://github.com/swansontec/map-macro
 #define EVAL0(...) __VA_ARGS__
@@ -673,7 +668,7 @@ EXPORT void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, 
 
 EXPORT Image* LoadImage(const char *path);
 EXPORT Image* LoadImageMemory(const void *data, size_t length);
-EXPORT bool SaveImage(Image *img, const char *path);
+EXPORT void SaveImage(Image *img, const char *path);
 
 typedef struct {
     sg_image sgi;

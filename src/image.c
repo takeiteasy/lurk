@@ -377,20 +377,86 @@ void DrawTri(Image *img, int x0, int y0, int x1, int y1, int x2, int y2, Color c
     }
 }
 
+static char* FileExt(const char *path) {
+    char *dot = strrchr(path, '.');
+    return !dot || dot == path ? NULL : dot + 1;
+}
+
+static Image* ImageFromFormattedMemory(unsigned char *data, int w, int h, int channels) {
+    Image *result = CreateImage(w, h);
+    for (int x = 0; x < w; x++)
+        for (int y = 0; y < h; y++) {
+            unsigned char *p = data + (x + w * y) * channels;
+            PSet(result, x, y, RGBA(p[0], p[1], p[2], channels == 4 ? p[3] : 255));
+        }
+    return result;
+}
+
 Image* LoadImage(const char *path) {
-    char *data = NULL;
-    size_t sizeOfData = 0;
-    if (!(data = LoadFile(path, &sizeOfData)) && sizeOfData > 0)
-        return false;
-    Image *result = LoadImageMemory((void*)data, sizeOfData);
+    int w, h, c;
+    unsigned char *data = NULL;
+    char *ext = FileExt(path);
+    if (!strncmp(ext, "qoi", 3)) {
+        qoi_desc desc;
+        data = qoi_read(path, &desc, 0);
+        c = desc.channels;
+        w = desc.width;
+        h = desc.height;
+    } else
+        data = stbi_load(path, &w, &h, &c, 4);
+    assert(data);
+    
+    Image *result = ImageFromFormattedMemory(data, w, h, c);
     free(data);
     return result;
 }
 
 Image* LoadImageMemory(const void *data, size_t sizeOfData) {
-    return NULL;
+    int w, h, c;
+    unsigned char *fdata = stbi_load_from_memory((const stbi_uc*)data, (int)sizeOfData, &w, &h, &c, 4);
+    Image *result = ImageFromFormattedMemory(fdata, w, h, c);
+    free(fdata);
+    return result;
 }
 
-bool SaveImage(Image *img, const char *path) {
-    return false;
+#if !defined(WEE_JPEG_QUALITY)
+#define WEE_JPEG_QUALITY 80
+#endif
+
+void SaveImage(Image *img, const char *path) {
+    char *ext = FileExt(path);
+    size_t sizeOfData = img->w * img->h * 4 * sizeof(char);
+    char *data = malloc(sizeOfData);
+    for (int i = 0, x = 0; x < img->h; x++)
+        for (int y = 0; y < img->w; y++) {
+            Color c = PGet(img, y, x);
+            data[i++] = c.r;
+            data[i++] = c.g;
+            data[i++] = c.b;
+            data[i++] = c.a;
+        }
+    
+    if (!strncmp(ext, "png", 3))
+        stbi_write_png(path, img->w, img->h, 4, data, 0);
+    else if (!strncmp(ext, "bmp", 3))
+        stbi_write_bmp(path, img->w, img->h, 4, data);
+    else if (!strncmp(ext, "tga", 3))
+        stbi_write_tga(path, img->w, img->h, 4, data);
+    else if (!strncmp(ext, "jpg", 3))
+        stbi_write_jpg(path, img->w, img->h, 4, data, WEE_JPEG_QUALITY);
+    else if (!strncmp(ext, "qoi", 3)) {
+        qoi_desc desc = {
+            .width = img->w,
+            .height = img->h,
+            .channels = 4,
+            .colorspace = QOI_SRGB
+        };
+        qoi_write(path, data, &desc);
+    } else {
+        FILE *fh = fopen(path, "wb");
+        assert(fh);
+        fwrite(data, sizeOfData, 1, fh);
+        fclose(fh);
+    }
+    free(data);
 }

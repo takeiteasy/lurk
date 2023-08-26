@@ -6,9 +6,6 @@
 //
 
 #define SOKOL_IMPL
-#define MJSON_IMPLEMENTATION
-#define JIM_IMPLEMENTATION
-#define HASHMAP_IMPL
 #include "sokol_gfx.h"
 #if !defined(WEE_STATE)
 #include "sokol_app.h"
@@ -16,6 +13,15 @@
 #endif
 #include "sokol_args.h"
 #include "sokol_time.h"
+#define JIM_IMPLEMENTATION
 #include "jim.h"
+#define MJSON_IMPLEMENTATION
 #include "mjson.h"
+#define HASHMAP_IMPL
 #include "hashmap.h"
+#define QOI_IMPLEMENTATION
+#include "qoi.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
