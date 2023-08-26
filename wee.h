@@ -148,14 +148,18 @@ typedef enum bool {
 #include <errno.h>
 #include <assert.h>
 
+#if defined(WEE_MAC)
+#include <mach/mach_time.h>
+#endif
 #if defined(WEE_POSIX)
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <dlfcn.h>
+#include <time.h>
 #else // Windows
 #include <io.h>
-#include <Windows.h>
+#include <windows.h>
 #include <dirent.h>
 #define F_OK 0
 #define access _access
@@ -714,6 +718,18 @@ typedef struct {
     weeInternalScene *wis;
     struct hashmap *map;
 
+    uint64_t timerFrequency;
+    int64_t prevFrameTime;
+    int64_t desiredFrameTime;
+    int64_t snapFrequencies[7];
+    int64_t timeAverager[4];
+    int64_t maxVsyncError;
+    int64_t frameAccumulator;
+    double fixedDeltaTime;
+    bool resync;
+    bool unlockFramerate;
+    int updateMultiplicity;
+    
     bool running;
     bool mouseHidden;
     bool mouseLocked;
@@ -736,13 +752,16 @@ typedef struct {
 } weeState;
 
 struct weeScene {
-    weeeeeeeeee *(*init)(weeState *);
-    void (*deinit)(weeState*, weeeeeeee*);
-    void (*reload)(weeState*, weeeeeeee*);
-    void (*background)(weeState*, weeee*);
-    void (*unload)(weeState*, weeeeeeee*);
-    void (*event)(weeState*, weeeeeeeee*, const sapp_event*);
-    bool (*frame)(weeState*, weeeeeeeee*, float);
+    weeeee*(*init)(weeState*);
+    void (*deinit)(weeState*, weeeeeee*);
+    void (*reload)(weeState*, weeeeeee*);
+    void (*unload)(weeState*, weeeeeee*);
+    void (*event)(weeState*, weeeeeeee*, const sapp_event*);
+    void (*preframe)(weeState*, weeeee*);
+    bool (*update)(weeState*, weeeeeee*, float);
+    bool (*fixedupdate)(weeState*, wee*, float);
+    void (*frame)(weeState*, weeeeeeee*, float);
+    void (*postframe)(weeState*, weeee*);
 };
 
 EXPORT void weeInit(weeState *state);

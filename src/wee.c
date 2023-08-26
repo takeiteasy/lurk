@@ -235,6 +235,7 @@ static void InitCallback(void) {
         .context = sapp_sgcontext()
     };
     sg_setup(&desc);
+    stm_setup();
     
     sg_image_desc img_desc = {
         .width = sapp_width(),
@@ -298,14 +299,48 @@ static void InitCallback(void) {
     };
     state.pip = sg_make_pipeline(&pip_desc);
     
+#if defined(WEE_MAC)
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+    uint64_t frequency = info.denom;
+    frequency *= 1000000000L;
+    state.timerFrequency = frequency / info.numer;
+#elif defined(WEE_WINDOW)
+    LARGE_INTEGER frequency;
+    if (!QueryPerformanceFrequency(&frequency))
+        return 1000L;
+    state.timerFrequency = frequency.QuadPart;
+#else
+    state.timerFrequency = 1000000000L;
+#endif
+    
+#define UPDATE_RATE 60.0
+    state.updateMultiplicity = 1;
+    state.unlockFramerate = 1;
+    state.desiredFrameTime = state.timerFrequency * UPDATE_RATE;
+    state.fixedDeltaTime = 1.0 / UPDATE_RATE;
+    int64_t time60hz = state.timerFrequency / 60;
+    state.snapFrequencies[0] = time60hz;
+    state.snapFrequencies[1] = time60hz*2;
+    state.snapFrequencies[2] = time60hz*3;
+    state.snapFrequencies[3] = time60hz*4;
+    state.snapFrequencies[4] = (time60hz+1)/2;
+    state.snapFrequencies[5] = (time60hz+2)/3;
+    state.snapFrequencies[6] = (time60hz+3)/4;
+    state.maxVsyncError = state.timerFrequency * .0002;
+    for (int i = 0; i < 4; i++)
+        state.timeAverager[i] = state.desiredFrameTime;
+    state.resync = true;
+    state.prevFrameTime = stm_now();
+    state.frameAccumulator = 0;
+    
+    state.windowWidth = sapp_width();
+    state.windowHeight = sapp_height();
+    
     weePushScene(&state, WEE_FIRST_SCENE);
 }
 
 static void FrameCallback(void) {
-    const int width = sapp_width();
-    const int height = sapp_height();
-    const float delta = (float)sapp_frame_duration() * 60.f;
-   
     if (state.fullscreen != state.fullscreenLast) {
         sapp_toggle_fullscreen();
         state.fullscreenLast = state.fullscreen;
@@ -326,12 +361,74 @@ static void FrameCallback(void) {
         assert(ReloadLibrary(state.wis));
 #endif
     
+    int64_t current_frame_time = stm_now();
+    int64_t delta_time = current_frame_time - state.prevFrameTime;
+    state.prevFrameTime = current_frame_time;
+    
+    if (delta_time > state.desiredFrameTime * 8)
+        delta_time = state.desiredFrameTime;
+    if (delta_time < 0)
+        delta_time = 0;
+    
+    for (int i = 0; i < 7; ++i)
+        if (labs(delta_time - state.snapFrequencies[i]) < state.maxVsyncError) {
+            delta_time = state.snapFrequencies[i];
+            break;
+        }
+    
+    for (int i = 0; i < 4; ++i)
+        state.timeAverager[i] = state.timeAverager[i + 1];
+    state.timeAverager[3] = delta_time;
+    delta_time = 0;
+    for (int i = 0; i < 4; ++i)
+        delta_time += state.timeAverager[i];
+    delta_time /= 4.f;
+    
+    if ((state.frameAccumulator += delta_time) > state.desiredFrameTime * 8)
+        state.resync = true;
+    
+    if (state.resync) {
+        state.frameAccumulator = 0;
+        delta_time = state.desiredFrameTime;
+        state.resync = false;
+    }
+    
+    double render_time = 1.0;
+    if (state.unlockFramerate) {
+        int64_t consumedDeltaTime = delta_time;
+        
+        while (state.frameAccumulator >= state.desiredFrameTime) {
+            if (state.wis && state.wis->scene->fixedupdate)
+                state.wis->scene->fixedupdate(&state, state.wis->context, state.fixedDeltaTime);
+            if (consumedDeltaTime > state.desiredFrameTime) {
+                if (state.wis && state.wis->scene->update)
+                    state.wis->scene->update(&state, state.wis->context, state.fixedDeltaTime);
+                consumedDeltaTime -= state.desiredFrameTime;
+            }
+            state.frameAccumulator -= state.desiredFrameTime;
+        }
+        
+        if (state.wis && state.wis->scene->update)
+            state.wis->scene->update(&state, state.wis->context, (double)consumedDeltaTime / state.timerFrequency);
+        render_time = (double)state.frameAccumulator / state.desiredFrameTime;
+    } else {
+        while (state.frameAccumulator >= state.desiredFrameTime*state.updateMultiplicity) {
+            for (int i = 0; i < state.updateMultiplicity; ++i) {
+                if (state.wis && state.wis->scene->fixedupdate)
+                    state.wis->scene->fixedupdate(&state, state.wis->context, state.fixedDeltaTime);
+                if (state.wis && state.wis->scene->update)
+                    state.wis->scene->update(&state, state.wis->context, state.fixedDeltaTime);
+                state.frameAccumulator -= state.desiredFrameTime;
+            }
+        }
+    }
+    
     sg_begin_pass(state.pass, &state.pass_action);
     if (state.wis && state.wis->scene->frame)
-        state.wis->scene->frame(&state, state.wis->context, delta);
+        state.wis->scene->frame(&state, state.wis->context, render_time);
     sg_end_pass();
     
-    sg_begin_default_pass(&state.pass_action, width, height);
+    sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     sg_apply_pipeline(state.pip);
     sg_apply_bindings(&state.bind);
     sg_draw(0, 6, 1);
@@ -414,10 +511,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         }
 #endif
     
-    state.windowWidth = sapp_width();
-    state.windowHeight = sapp_height();
     state.map = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
-    
 #if defined(WEE_MAC)
 #define DYLIB_EXT ".dylib"
 #elif defined(WEE_WINDOWS)

@@ -27,7 +27,7 @@ static void event(weeState *state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_ev
     
 }
 
-static bool frame(weeState *state, weeeeeeeeeeeeeee *scene, float delta) {
+static void frame(weeState *state, weeeeeeeeeeeeeee *scene, float delta) {
     printf("hello from game!\n");
     weePopScene(state);
     return true;
