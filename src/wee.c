@@ -306,6 +306,21 @@ static void FrameCallback(void) {
     const int height = sapp_height();
     const float delta = (float)sapp_frame_duration() * 60.f;
    
+    if (state.fullscreen != state.fullscreenLast) {
+        sapp_toggle_fullscreen();
+        state.fullscreenLast = state.fullscreen;
+    }
+    
+    if (state.cursorVisible != state.cursorVisibleLast) {
+        sapp_show_mouse(state.cursorVisible);
+        state.cursorVisibleLast = state.cursorVisible;
+    }
+    
+    if (state.cursorLocked != state.cursorLockedLast) {
+        sapp_lock_mouse(state.cursorLocked);
+        state.cursorLockedLast = state.cursorLocked;
+    }
+    
 #if defined(WEE_DEBUG)
     if (state.wis)
         assert(ReloadLibrary(state.wis));
@@ -326,6 +341,14 @@ static void FrameCallback(void) {
 }
 
 static void EventCallback(const sapp_event* e) {
+    switch (e->type) {
+        case SAPP_EVENTTYPE_RESIZED:
+            state.windowWidth = e->window_width;
+            state.windowHeight = e->window_height;
+            break;
+        default:
+            break;
+    }
     if (state.wis && state.wis->scene->event)
         state.wis->scene->event(&state, state.wis->context, e);
 }
@@ -391,6 +414,8 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         }
 #endif
     
+    state.windowWidth = sapp_width();
+    state.windowHeight = sapp_height();
     state.map = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
     
 #if defined(WEE_MAC)
@@ -463,3 +488,36 @@ void weeDestroyScene(weeState *state, const char *name) {
     if ((found = hashmap_get(state->map, (void*)&search)))
         hashmap_delete(state->map, (void*)found);
 }
+
+int weeWindowWidth(weeState *state) {
+    return state->windowWidth;
+}
+
+int weeWindowHeight(weeState *state) {
+    return state->windowHeight;
+}
+
+int weeIsWindowFullscreen(weeState *state) {
+    return state->fullscreen;
+}
+
+void weeToggleFullscreen(weeState *state) {
+    state->fullscreen = !state->fullscreen;
+}
+
+int weeIsCursorVisible(weeState *state) {
+    return state->cursorVisible;
+}
+
+void weeToggleCursorVisible(weeState *state) {
+    state->cursorVisible = !state->cursorVisible;
+}
+
+int weeIsCursorLocked(weeState *state) {
+    return state->cursorLocked;
+}
+
+void weeToggleCursorLock(weeState *state) {
+    state->cursorLocked = !state->cursorLocked;
+}
+

@@ -715,6 +715,12 @@ typedef struct {
     struct hashmap *map;
 
     bool running;
+    bool mouseHidden;
+    bool mouseLocked;
+    bool fullscreen, fullscreenLast;
+    bool cursorVisible, cursorVisibleLast;
+    bool cursorLocked, cursorLockedLast;
+    int windowWidth, windowHeight;
     sapp_desc desc;
 
     sg_pass_action pass_action;
@@ -744,6 +750,15 @@ EXPORT void weeCreateScene(weeState *state, const char *name, const char *path);
 EXPORT void weePushScene(weeState *state, const char *name);
 EXPORT void weePopScene(weeState *state);
 EXPORT void weeDestroyScene(weeState *state, const char *name);
+
+EXPORT int weeWindowWidth(weeState *state);
+EXPORT int weeWindowHeight(weeState *state);
+EXPORT int weeIsWindowFullscreen(weeState *state);
+EXPORT void weeToggleFullscreen(weeState *state);
+EXPORT int weeIsCursorVisible(weeState *state);
+EXPORT void weeToggleCursorVisible(weeState *state);
+EXPORT int weeIsCursorLocked(weeState *state);
+EXPORT void weeToggleCursorLock(weeState *state);
 
 EXPORT void weeClearColor(weeState *state, Color color);
 EXPORT void weeViewport(weeState *state, int x, int y, int width, int height);
