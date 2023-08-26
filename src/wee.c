@@ -376,7 +376,7 @@ static void FrameCallback(void) {
             break;
         }
     
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 3; ++i)
         state.timeAverager[i] = state.timeAverager[i + 1];
     state.timeAverager[3] = delta_time;
     delta_time = 0;
