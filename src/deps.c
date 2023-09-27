@@ -31,3 +31,5 @@
 #include "ezrng.h"
 #include "ezecs.h"
 #include "ezfs.h"
+#include "ezcontainer.h"
+#include "ezstack.h"

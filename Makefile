@@ -56,6 +56,11 @@ SCENE_OUT=$@
 
 scenes: $(SCENES_OUT)
 
+game/assets.ezc:
+	sh tools/cook.sh game/assets/* > game/assets.ezc
+
+assets: game/assets.ezc
+
 debug:
 	$(CC) $(INCLUDE) -g -DWEE_DEBUG -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 

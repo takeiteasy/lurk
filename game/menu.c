@@ -6,9 +6,9 @@ struct weeeeeeeeeeeeeeeeeee {
 
 static weeeeeeeeeeeeeeee* init(weeState* state) {
     weeInit(state);
-    printf("Initializing Menu scene...\n");
+    printf("Initializing menu scene...\n");
     weeee *result = malloc(sizeof(struct weeeeeeeeeee));
-    result->test = 1;
+    result->test = weeFindTexture(state, "test.png");
     return result;
 }
 
@@ -29,8 +29,8 @@ static void event(weeState* state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_ev
 }
 
 static void frame(weeState* state, weeeeeeeeeeeeeee *scene, float delta) {
-    printf("hello from menu!\n");
-    weePushScene(state, "game");
+    printf("hello from menu?\n");
+    weeDrawTexture(state, scene->test);
 }
 
 EXPORT const weeScene scene = {

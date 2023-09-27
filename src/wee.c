@@ -7,6 +7,21 @@
 
 
 #include "wee.h"
+
+static int CompareTextureID(const void *a, const void *b, void *udata) {
+    const TextureBucket *ua = a;
+    const TextureBucket *ub = b;
+    return ua->tid == ub->tid;
+}
+
+static int CompareTextureName(const void *a, const void *b, void *udata) {
+    const TextureBucket *ua = a;
+    const TextureBucket *ub = b;
+    return strcmp(ua->name, ub->name);
+}
+
+#if !defined(WEE_STATE)
+#include "framebuffer.glsl.h"
 #include "texture.glsl.h"
 
 static Texture* NewTexture(sg_image_desc *desc) {
@@ -175,28 +190,9 @@ static void FlushTextureBatch(TextureBatch *batch) {
     batch->vertexCount = 0;
 }
 
-typedef struct TextureBucket {
-    int tid;
-    const char *name, *path;
-    Texture *texture;
-    TextureBatch *batch;
-} TextureBucket;
-
-static int CompareTextureID(const void *a, const void *b, void *udata) {
-    const TextureBucket *ua = a;
-    const TextureBucket *ub = b;
-    return ua->tid == ub->tid;
-}
-
-static int CompareTextureName(const void *a, const void *b, void *udata) {
-    const TextureBucket *ua = a;
-    const TextureBucket *ub = b;
-    return strcmp(ua->name, ub->name);
-}
-
 static uint64_t HashTexture(const void *item, uint64_t seed0, uint64_t seed1) {
     const TextureBucket *b = item;
-    return hashmap_sip(b->name, strlen(b->name), seed0, seed1);
+    return b->name ? hashmap_sip(b->name, strlen(b->name), seed0, seed1) : b->tid;
 }
 
 static void FreeTexture(void *item) {
@@ -207,8 +203,6 @@ static void FreeTexture(void *item) {
     }
 }
 
-#if !defined(WEE_STATE)
-#include "framebuffer.glsl.h"
 
 weeState state = {
     .running = false,
@@ -457,8 +451,27 @@ static void InitCallback(void) {
     
     state.stateMap = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
     state.textureMap = hashmap_new(sizeof(TextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
-    weeInit(&state);
+   
+    state.assets = ezContainerRead(WEE_ASSETS_PATH);
+    for (int i = 0; i < state.assets->sizeOfEntries; i++) {
+        ezContainerTreeEntry *e = &state.assets->entries[i];
+        state.textureMap->compare = CompareTextureName;
+        const char *ext = FileExt(e->filePath);
+        if (!strncmp(ext, "png", 3)) {
+            TextureBucket search = {.name = FileName(e->filePath)};
+            TextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
+            assert(!found);
+            search.texture = LoadTextureFromFile(e->filePath);
+            search.batch = CreateTextureBatch(search.texture, WEE_DEFAULT_BATCH_SIZE);
+            search.tid = state.textureMap->hash((void*)&search, 0, 0) << 16 >> 16;;
+            search.path = e->filePath;
+            hashmap_set(state.textureMap, (void*)&search);
+        }
+    }
     
+    state.drawCallStack.front = state.drawCallStack.back = NULL;
+    
+    weeInit(&state);
 #if defined(WEE_MAC)
 #define DYLIB_EXT ".dylib"
 #elif defined(WEE_WINDOWS)
@@ -606,13 +619,22 @@ static void FrameCallback(void) {
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     if (state.wis && state.wis->scene->frame)
         state.wis->scene->frame(&state, state.wis->context, render_time);
+    
+    ezStackEntry *callEntry = NULL;
+    while ((callEntry = ezStackDrop(&state.drawCallStack))) {
+        weeDrawCall *call = callEntry->data;
+        TextureBatchDraw(call->bucket->batch, call->position, call->size, call->scale, call->viewportSize, call->rotation, call->clip);
+    }
+    
     size_t iter = 0;
     void *item;
     while (hashmap_iter(state.textureMap, &iter, &item)) {
         TextureBucket *bucket = item;
         // TODO: Z-Sorting + draw ordering
-        FlushTextureBatch(bucket->batch);
+        if (bucket->batch->vertexCount > 0)
+            FlushTextureBatch(bucket->batch);
     }
+    
     sg_end_pass();
     sg_commit();
     
@@ -684,17 +706,16 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 
 void weeCreateScene(weeState *state, const char *name, const char *path) {
     SceneBucket search = {.name = name};
-    SceneBucket *found = NULL;
-    if (!(found = hashmap_get(state->stateMap, (void*)&search))) {
-        weeInternalScene *wis = malloc(sizeof(weeInternalScene));
-        wis->path = path;
-        wis->context = NULL;
-        wis->scene = NULL;
-        wis->handle = NULL;
-        assert(ReloadLibrary(wis));
-        search.wis = wis;
-        hashmap_set(state->stateMap, (void*)&search);
-    }
+    SceneBucket *found =  hashmap_get(state->stateMap, (void*)&search);
+    assert(!found);
+    weeInternalScene *wis = malloc(sizeof(weeInternalScene));
+    wis->path = path;
+    wis->context = NULL;
+    wis->scene = NULL;
+    wis->handle = NULL;
+    assert(ReloadLibrary(wis));
+    search.wis = wis;
+    hashmap_set(state->stateMap, (void*)&search);
 }
 
 void weePushScene(weeState *state, const char *name) {
@@ -759,18 +780,26 @@ void weeToggleCursorLock(weeState *state) {
     state->cursorLocked = !state->cursorLocked;
 }
 
-void weeRenderTexture(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+uint64_t weeFindTexture(weeState *state, const char *name) {
     TextureBucket search = {.name = name};
     state->textureMap->compare = CompareTextureName;
     TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(found);
-    TextureBatchDraw(found->batch, position, size, scale, viewportSize, rotation, clip);
+    return found ? found->tid : 0;
 }
 
-void weeUnloadTexture(weeState *state, const char *name) {
-    TextureBucket search = {.name = name};
-    state->textureMap->compare = CompareTextureName;
+void weeDrawTexture(weeState *state, uint64_t tid) {
+    assert(tid);
+    TextureBucket search = {.name = "test.png"};
+//    state->textureMap->compare = CompareTextureID;
     TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
     assert(found);
-    hashmap_delete(state->textureMap, (void*)found);
+    weeDrawCall *call = malloc(sizeof(weeDrawCall));
+    call->size = Vec2New(found->texture->w, found->texture->h);
+    call->scale = Vec2New(1.f, 1.f);
+    call->position = Vec2New(0.f, 0.f);
+    call->rotation = 0.f;
+    call->clip = (Rect){0.f, 0.f, found->texture->w, found->texture->h};
+    call->bucket = found;
+    call->viewportSize = Vec2New(state->desc.width, state->desc.height);
+    ezStackAppend(&state->drawCallStack, 0, (void*)call);
 }

@@ -3,6 +3,7 @@
 #define WEE_CONFIG_PATH ".test.json"
 #define WEE_DYLIB_PATH "build/"
 #define WEE_FIRST_SCENE "menu"
+#define WEE_ASSETS_PATH "game/assets.ezc"
 
 #define WEE_SCENES \
     X("menu")      \

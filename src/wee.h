@@ -167,6 +167,8 @@ typedef enum bool {
 #include "ezrng.h"
 #include "ezecs.h"
 #include "ezfs.h"
+#include "ezcontainer.h"
+#include "ezstack.h"
 
 #include "config.h"
 
@@ -258,10 +260,29 @@ typedef struct wis {
 #define WEE_DEFAULT_BATCH_SIZE 1
 #endif
 
+typedef struct TextureBucket {
+    uint64_t tid;
+    const char *name, *path;
+    Texture *texture;
+    TextureBatch *batch;
+} TextureBucket;
+
+typedef struct weeDrawCall {
+    TextureBucket *bucket;
+    Vec2f position;
+    Vec2f size;
+    Vec2f scale;
+    Vec2f viewportSize;
+    float rotation;
+    Rect clip;
+} weeDrawCall;
+
 typedef struct {
     weeInternalScene *wis;
     struct hashmap *stateMap;
     struct hashmap *textureMap;
+    ezContainer *assets;
+    ezStack drawCallStack;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -316,8 +337,8 @@ EXPORT void weeToggleCursorVisible(weeState *state);
 EXPORT int weeIsCursorLocked(weeState *state);
 EXPORT void weeToggleCursorLock(weeState *state);
 
-EXPORT void weeRenderTexture(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
-EXPORT void weeUnloadTexture(weeState *state, const char *name);
+EXPORT uint64_t weeFindTexture(weeState *state, const char *name);
+EXPORT void weeDrawTexture(weeState *state, uint64_t tid);
 
 extern weeState state;
 
