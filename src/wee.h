@@ -236,6 +236,7 @@ typedef struct {
 EXPORT Texture* LoadTextureFromImage(ezImage *img);
 EXPORT Texture* LoadTextureFromFile(const char *path);
 EXPORT Texture* CreateEmptyTexture(unsigned int w, unsigned int h);
+EXPORT void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
 EXPORT void UpdateTexture(Texture *texture, ezImage *img);
 EXPORT void DestroyTexture(Texture *texture);
 
@@ -260,14 +261,20 @@ typedef struct wis {
     struct wis *next;
 } weeInternalScene;
 
-// TODO: Turn into easily modifiable option
+// TODO: Turn these into easily modifiable option
+
 #if !defined(WEE_MAX_MATRIX_STACK)
 #define WEE_MAX_MATRIX_STACK 32
 #endif
 
+#if !defined(WEE_DEFAULT_BATCH_SIZE)
+#define WEE_DEFAULT_BATCH_SIZE 1
+#endif
+
 typedef struct {
     weeInternalScene *wis;
-    struct hashmap *map;
+    struct hashmap *stateMap;
+    struct hashmap *textureMap;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -321,6 +328,12 @@ EXPORT int weeIsCursorVisible(weeState *state);
 EXPORT void weeToggleCursorVisible(weeState *state);
 EXPORT int weeIsCursorLocked(weeState *state);
 EXPORT void weeToggleCursorLock(weeState *state);
+
+EXPORT int weeLoadTexture(weeState *state, const char *path, const char *name);
+EXPORT void weeRenderTexture(weeState *state, int tid, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
+EXPORT void weeRenderTextureByName(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
+EXPORT void weeUnloadTexture(weeState *state, int tid);
+EXPORT void weeUnloadTextureByName(weeState *state, const char *name);
 
 extern weeState state;
 

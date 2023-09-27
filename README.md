@@ -26,7 +26,7 @@ Nothing to see yet
     - dirent_win32.h
 - [tidwall/hashmap.c](https://github.com/tidwall/hashmap.c) (MIT)
     - hashmap.h
-- [nothings/stb](https://github.com/nothings/stb/tree/master) (MIT/Public Domain)
+- [nothings/stb](https://github.com/nothings/stb) (MIT/Public Domain)
     - stb_image.h
     - stb_image_write.h
 - [phoboslab/qoi](https://github.com/phoboslab/qoi) (MIT)
