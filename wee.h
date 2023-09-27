@@ -212,15 +212,38 @@ typedef union {
 } Color;
 
 typedef struct {
-    sg_image sgi;
+    Vec2f position, texcoord;
+    Vec4f color;
+} Vertex;
+
+typedef struct {
+    float x, y, w, h;
+} Rect;
+
+typedef struct {
+    sg_image internal;
     int w, h;
 } Texture;
+
+typedef struct {
+    Texture *texture;
+    Vertex *vertices;
+    int maxVertices, vertexCount;
+    sg_bindings bind;
+    Vec2f size;
+} TextureBatch;
 
 EXPORT Texture* LoadTextureFromImage(ezImage *img);
 EXPORT Texture* LoadTextureFromFile(const char *path);
 EXPORT Texture* CreateEmptyTexture(unsigned int w, unsigned int h);
 EXPORT void UpdateTexture(Texture *texture, ezImage *img);
 EXPORT void DestroyTexture(Texture *texture);
+
+EXPORT TextureBatch* CreateTextureBatch(Texture *texture, int maxVertices);
+EXPORT void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices);
+EXPORT void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
+EXPORT void FlushTextureBatch(TextureBatch *batch);
+EXPORT void DestroyTextureBatch(TextureBatch *batch);
 
 typedef struct weeScene weeScene;
 

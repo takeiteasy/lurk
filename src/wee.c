@@ -8,7 +8,7 @@
 
 #include "wee.h"
 #if !defined(WEE_STATE)
-#include "wee.glsl.h"
+#include "framebuffer.glsl.h"
 
 weeState state = {
     .running = false,
@@ -237,26 +237,6 @@ static void InitCallback(void) {
     };
     sg_setup(&desc);
     stm_setup();
-    
-    sg_pipeline_desc pip_desc = {
-        .shader = sg_make_shader(wee_shader_desc(sg_query_backend())),
-        .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
-        .index_type = SG_INDEXTYPE_UINT16,
-        .layout = {
-            .attrs = {
-                [ATTR_wee_vs_position].format = SG_VERTEXFORMAT_FLOAT4,
-                [ATTR_wee_vs_texcoord0].format = SG_VERTEXFORMAT_FLOAT2,
-                [ATTR_wee_vs_color0].format = SG_VERTEXFORMAT_FLOAT4,
-                [ATTR_wee_vs_psize].format = SG_VERTEXFORMAT_FLOAT
-            }
-        },
-        .depth = {
-            .compare = SG_COMPAREFUNC_LESS_EQUAL,
-            .write_enabled = true
-        },
-        .cull_mode = SG_CULLMODE_BACK,
-    };
-    state.pip = sg_make_pipeline(&pip_desc);
     
 #if defined(WEE_MAC)
     mach_timebase_info_data_t info;
