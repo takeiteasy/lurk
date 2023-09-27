@@ -1,0 +1,3 @@
+[submodule "deps/ez"]
+	path = deps/ez
+	url = git@github.com:takeiteasy/ez.git

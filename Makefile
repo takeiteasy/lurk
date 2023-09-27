@@ -27,7 +27,7 @@ else
 	endif
 endif
 
-INCLUDE=-Ibuild -Ideps -Igame -I.
+INCLUDE=-Ibuild -Ideps -Ideps/ez -Igame -I.
 SOURCES=$(wildcard src/*.c)
 ARCH_PATH=./tools/$(ARCH)
 

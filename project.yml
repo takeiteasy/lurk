@@ -37,7 +37,7 @@ targets:
         - sdk: MetalKit.framework
         - sdk: Quartz.framework
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -DWEE_DEBUG, -fobjc-arc, -fenable-matrix]
   menu:
     type: library.dynamic
@@ -47,7 +47,7 @@ targets:
         - path: wee.h
         - path: src/
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL,-fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]
   game:
     type: library.dynamic
@@ -57,5 +57,5 @@ targets:
         - path: wee.h
         - path: src/
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR), $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL,-fenable-matrix, -DWEE_STATE]

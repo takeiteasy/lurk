@@ -2,7 +2,10 @@
 
 ## About
 
-_Wee_ framework. **WIP**
+_Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
+
+> [!WARNING]
+> Work in progress
 
 ## Gallery
 Nothing to see yet
@@ -33,7 +36,6 @@ Nothing to see yet
 
 - [raysan5/raylib](https://github.com/raysan5/raylib/)
     - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)
-    - Immediate mode interface is based on [rlgl.h](https://github.com/raysan5/raylib/blob/master/src/rlgl.h)
 - [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)
     - Hot-reloading libraries was based off this example
 - [TylerGlaiel/FrameTimingControl](https://github.com/TylerGlaiel/FrameTimingControl)

@@ -5,9 +5,10 @@
 //  Created by George Watson on 21/07/2023.
 //
 
+
 #include "wee.h"
 #if !defined(WEE_STATE)
-#include "framebuffer.glsl.h"
+#include "wee.glsl.h"
 
 weeState state = {
     .running = false,
@@ -18,7 +19,7 @@ weeState state = {
         .window_title = DEFAULT_WINDOW_TITLE
     },
     .pass_action = {
-        .colors[0] = { .action=SG_ACTION_CLEAR, .value={0.f, 0.f, 0.f, 1.f} }
+        .colors[0] = {.action=SG_ACTION_CLEAR, .value={0.39f, 0.58f, 0.92f, 1.f}}
     }
 };
 #endif
@@ -237,58 +238,16 @@ static void InitCallback(void) {
     sg_setup(&desc);
     stm_setup();
     
-    sg_image_desc img_desc = {
-        .width = sapp_width(),
-        .height = sapp_height(),
-        .pixel_format = SG_PIXELFORMAT_RGBA8,
-        .sample_count = state.desc.sample_count,
-        .render_target = true,
-        .min_filter = SG_FILTER_LINEAR,
-        .mag_filter = SG_FILTER_LINEAR,
-        .wrap_u = SG_WRAP_CLAMP_TO_EDGE,
-        .wrap_v = SG_WRAP_CLAMP_TO_EDGE
-    };
-    state.color = sg_make_image(&img_desc);
-    img_desc.pixel_format = SG_PIXELFORMAT_DEPTH;
-    state.depth = sg_make_image(&img_desc);
-    sg_pass_desc pass_desc = (sg_pass_desc) {
-        .color_attachments[0].image = state.color,
-        .depth_stencil_attachment.image = state.depth
-    };
-    state.pass = sg_make_pass(&pass_desc);
-    
-    const float vertices[] = {
-        // pos      // uv
-        -1.f,  1.f, 0.f, 1.f,
-         1.f,  1.f, 1.f, 1.f,
-         1.f, -1.f, 1.f, 0.f,
-        -1.f, -1.f, 0.f, 0.f,
-    };
-    const uint16_t indices[] = {
-        0, 1, 2,
-        0, 2, 3
-    };
-    sg_buffer_desc vbuf_desc = (sg_buffer_desc) {
-        .data = SG_RANGE(vertices)
-    };
-    sg_buffer_desc ibuf_desc = (sg_buffer_desc) {
-        .type = SG_BUFFERTYPE_INDEXBUFFER,
-        .data = SG_RANGE(indices),
-    };
-    state.bind = (sg_bindings) {
-        .vertex_buffers[0] =  sg_make_buffer(&vbuf_desc),
-        .index_buffer = sg_make_buffer(&ibuf_desc),
-        .fs_images = state.color
-    };
-    
-    sg_pipeline_desc pip_desc = (sg_pipeline_desc){
-        .shader = sg_make_shader(framebuffer_program_shader_desc(sg_query_backend())),
+    sg_pipeline_desc pip_desc = {
+        .shader = sg_make_shader(wee_shader_desc(sg_query_backend())),
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
         .index_type = SG_INDEXTYPE_UINT16,
         .layout = {
             .attrs = {
-                [ATTR_framebuffer_vs_position].format = SG_VERTEXFORMAT_FLOAT2,
-                [ATTR_framebuffer_vs_texcoord].format = SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_wee_vs_position].format = SG_VERTEXFORMAT_FLOAT4,
+                [ATTR_wee_vs_texcoord0].format = SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_wee_vs_color0].format = SG_VERTEXFORMAT_FLOAT4,
+                [ATTR_wee_vs_psize].format = SG_VERTEXFORMAT_FLOAT
             }
         },
         .depth = {
@@ -361,6 +320,9 @@ static void FrameCallback(void) {
         assert(ReloadLibrary(state.wis));
 #endif
     
+    if (state.wis && state.wis->scene->preframe)
+        state.wis->scene->preframe(&state, state.wis->context);
+    
     int64_t current_frame_time = stm_now();
     int64_t delta_time = current_frame_time - state.prevFrameTime;
     state.prevFrameTime = current_frame_time;
@@ -423,18 +385,14 @@ static void FrameCallback(void) {
         }
     }
     
-    sg_begin_pass(state.pass, &state.pass_action);
+    sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     if (state.wis && state.wis->scene->frame)
         state.wis->scene->frame(&state, state.wis->context, render_time);
     sg_end_pass();
-    
-    sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
-    sg_apply_pipeline(state.pip);
-    sg_apply_bindings(&state.bind);
-    sg_draw(0, 6, 1);
-    sg_end_pass();
-    
     sg_commit();
+    
+    if (state.wis && state.wis->scene->postframe)
+        state.wis->scene->postframe(&state, state.wis->context);
 }
 
 static void EventCallback(const sapp_event* e) {
@@ -452,10 +410,7 @@ static void EventCallback(const sapp_event* e) {
 
 static void CleanupCallback(void) {
     state.running = false;
-    sg_destroy_pass(state.pass);
     sg_destroy_pipeline(state.pip);
-    sg_destroy_image(state.color);
-    sg_destroy_image(state.depth);
 #define X(NAME) \
     weeDestroyScene(&state, NAME);
 WEE_SCENES

@@ -6,18 +6,17 @@
 //
 
 #include "wee.h"
-#include "texture.glsl.h"
 
-Texture* LoadTextureFromImage(Image *img) {
+Texture* LoadTextureFromImage(ezImage *img) {
     Texture *result = CreateEmptyTexture(img->w, img->h);
     UpdateTexture(result, img);
     return result;
 }
 
 Texture* LoadTextureFromFile(const char *path) {
-    Image *img = LoadImage(path);
+    ezImage *img = ezImageLoadFromPath(path);
     Texture *result = LoadTextureFromImage(img);
-    DestroyImage(img);
+    ezImageFree(img);
     return result;
 }
 
@@ -34,7 +33,7 @@ Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     return result;
 }
 
-void UpdateTexture(Texture *texture, Image *img) {
+void UpdateTexture(Texture *texture, ezImage *img) {
     if (texture->w != img->w || texture->h != img->h) {
         DestroyTexture(texture);
         texture = CreateEmptyTexture(img->w, img->h);
