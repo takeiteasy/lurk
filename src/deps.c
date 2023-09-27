@@ -30,3 +30,4 @@
 #include "ezmath.h"
 #include "ezrng.h"
 #include "ezecs.h"
+#include "ezfs.h"

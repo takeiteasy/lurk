@@ -147,30 +147,14 @@ typedef enum bool {
 #include <setjmp.h>
 #include <errno.h>
 #include <assert.h>
-
 #if defined(WEE_MAC)
 #include <mach/mach_time.h>
 #endif
-#if defined(WEE_POSIX)
-#include <unistd.h>
-#include <sys/types.h>
-#include <pwd.h>
-#include <dlfcn.h>
-#include <time.h>
-#else // Windows
-#include <io.h>
-#include <windows.h>
-#include <dirent.h>
-#define F_OK 0
-#define access _access
-#define getcwd _getcwd
-#define chdir _chdir
-#endif
 
 #include "sokol_gfx.h"
-#include "sokol_args.h"
 #include "sokol_app.h"
 #include "sokol_glue.h"
+#include "sokol_args.h"
 #include "sokol_time.h"
 #include "jim.h"
 #include "mjson.h"
@@ -182,22 +166,7 @@ typedef enum bool {
 #include "ezmath.h"
 #include "ezrng.h"
 #include "ezecs.h"
-
-#if !defined(MAX_PATH)
-#if defined(WEE_MAC)
-#define MAX_PATH 255
-#elif defined(WEE_WINDOWS)
-#define MAX_PATH 256
-#elif defined(WEE_LINUX)
-#define MAX_PATH 4096
-#endif
-#endif
-
-#if defined(WEE_POSIX)
-#define PATH_SEPERATOR '/'
-#else
-#define PATH_SEPERATOR '\\'
-#endif
+#include "ezfs.h"
 
 #include "config.h"
 
@@ -234,16 +203,6 @@ typedef enum bool {
     X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
     X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
     X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
-
-EXPORT bool DoesFileExist(const char *path);
-EXPORT bool DoesDirExist(const char *path);
-EXPORT char *FormatString(const char *fmt, ...);
-EXPORT char *LoadFile(const char *path, size_t *length);
-EXPORT const char *JoinPath(const char *a, const char *b);
-EXPORT const char *UserPath(void);
-EXPORT const char *CurrentDirectory(void);
-EXPORT bool SetCurrentDirectory(const char *path);
-EXPORT const char *ResolvePath(const char *path);
 
 typedef union {
     struct {
