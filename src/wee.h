@@ -233,19 +233,6 @@ typedef struct {
     Vec2f size;
 } TextureBatch;
 
-EXPORT Texture* LoadTextureFromImage(ezImage *img);
-EXPORT Texture* LoadTextureFromFile(const char *path);
-EXPORT Texture* CreateEmptyTexture(unsigned int w, unsigned int h);
-EXPORT void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
-EXPORT void UpdateTexture(Texture *texture, ezImage *img);
-EXPORT void DestroyTexture(Texture *texture);
-
-EXPORT TextureBatch* CreateTextureBatch(Texture *texture, int maxVertices);
-EXPORT void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices);
-EXPORT void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
-EXPORT void FlushTextureBatch(TextureBatch *batch);
-EXPORT void DestroyTextureBatch(TextureBatch *batch);
-
 typedef struct weeScene weeScene;
 
 typedef struct wis {
@@ -329,11 +316,8 @@ EXPORT void weeToggleCursorVisible(weeState *state);
 EXPORT int weeIsCursorLocked(weeState *state);
 EXPORT void weeToggleCursorLock(weeState *state);
 
-EXPORT int weeLoadTexture(weeState *state, const char *path, const char *name);
-EXPORT void weeRenderTexture(weeState *state, int tid, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
-EXPORT void weeRenderTextureByName(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
-EXPORT void weeUnloadTexture(weeState *state, int tid);
-EXPORT void weeUnloadTextureByName(weeState *state, const char *name);
+EXPORT void weeRenderTexture(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip);
+EXPORT void weeUnloadTexture(weeState *state, const char *name);
 
 extern weeState state;
 

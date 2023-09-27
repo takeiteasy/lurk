@@ -7,7 +7,6 @@ struct weeeeeeeeeeeeeeeeeee {
 static weeeeeeeeeeeeeeee* init(weeState *state) {
     printf("Initializing game scene...\n");
     weeee *result = malloc(sizeof(struct weeeeeeeeeee));
-    result->test = 1;
     return result;
 }
 
@@ -29,7 +28,6 @@ static void event(weeState *state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_ev
 
 static void frame(weeState *state, weeeeeeeeeeeeeee *scene, float delta) {
     printf("hello from game!\n");
-    weePopScene(state);
 }
 
 EXPORT const weeScene scene = {

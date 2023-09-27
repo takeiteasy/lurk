@@ -27,7 +27,7 @@ else
 	endif
 endif
 
-INCLUDE=-Ibuild -Ideps -Ideps/ez -Igame
+INCLUDE=-Ibuild -Ideps -Ideps/ez -Igame -Isrc
 SOURCES=$(wildcard src/*.c)
 ARCH_PATH=./tools/$(ARCH)
 
@@ -62,8 +62,12 @@ debug:
 release:
 		$(CC) $(INCLUDE) -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 
-all: shaders scenes debug
+clean:
+	rm -rf build/ || yes
+	mkdir build/
+
+all: clean shaders scenes debug
 
 default: scenes
 
-.PHONY: all debug release shaders scenes
+.PHONY: all debug release shaders scenes clean

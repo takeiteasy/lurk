@@ -17,20 +17,7 @@ static Texture* NewTexture(sg_image_desc *desc) {
     return result;
 }
 
-Texture* LoadTextureFromImage(ezImage *img) {
-    Texture *result = CreateEmptyTexture(img->w, img->h);
-    UpdateTexture(result, img);
-    return result;
-}
-
-Texture* LoadTextureFromFile(const char *path) {
-    ezImage *img = ezImageLoadFromPath(path);
-    Texture *result = LoadTextureFromImage(img);
-    ezImageFree(img);
-    return result;
-}
-
-Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
+static Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
@@ -39,7 +26,15 @@ Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     return NewTexture(&desc);
 }
 
-void UpdateTexture(Texture *texture, ezImage *img) {
+static void DestroyTexture(Texture *texture) {
+    if (texture) {
+        if (sg_query_image_state(texture->internal) == SG_RESOURCESTATE_VALID)
+            sg_destroy_image(texture->internal);
+        free(texture);
+    }
+}
+
+static void UpdateTexture(Texture *texture, ezImage *img) {
     if (texture->w != img->w || texture->h != img->h) {
         DestroyTexture(texture);
         texture = CreateEmptyTexture(img->w, img->h);
@@ -51,6 +46,19 @@ void UpdateTexture(Texture *texture, ezImage *img) {
         }
     };
     sg_update_image(texture->internal, &data);
+}
+
+static Texture* LoadTextureFromImage(ezImage *img) {
+    Texture *result = CreateEmptyTexture(img->w, img->h);
+    UpdateTexture(result, img);
+    return result;
+}
+
+static Texture* LoadTextureFromFile(const char *path) {
+    ezImage *img = ezImageLoadFromPath(path);
+    Texture *result = LoadTextureFromImage(img);
+    ezImageFree(img);
+    return result;
 }
 
 typedef Vertex Quad[6];
@@ -94,9 +102,14 @@ static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f sc
         };
 }
 
-void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+static void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
     Quad quad;
-    GenerateQuad(position, (Vec2f){texture->w, texture->h}, size, scale, viewportSize, rotation, clip, &quad);
+    Vec2f textureSize = {texture->w, texture->h};
+    if (clip.w < 0 && clip.h < 0) {
+        clip.w = textureSize.x;
+        clip.h = textureSize.y;
+    }
+    GenerateQuad(position, textureSize, size.x < 0 && size.y < 0 ? textureSize : size, scale, viewportSize, rotation, clip, &quad);
     sg_buffer_desc desc = {
         .data = SG_RANGE(quad)
     };
@@ -109,15 +122,7 @@ void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2
     sg_destroy_buffer(bind.vertex_buffers[0]);
 }
 
-void DestroyTexture(Texture *texture) {
-    if (texture) {
-        if (sg_query_image_state(texture->internal) == SG_RESOURCESTATE_VALID)
-            sg_destroy_image(texture->internal);
-        free(texture);
-    }
-}
-
-TextureBatch* CreateTextureBatch(Texture *texture, int max) {
+static TextureBatch* CreateTextureBatch(Texture *texture, int max) {
     TextureBatch *result = malloc(sizeof(TextureBatch));
     result->maxVertices = max * 6;
     result->vertexCount = 0;
@@ -135,7 +140,17 @@ TextureBatch* CreateTextureBatch(Texture *texture, int max) {
     return result;
 }
 
-void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices) {
+static void DestroyTextureBatch(TextureBatch *batch) {
+    if (batch) {
+        if (batch->vertices)
+            free(batch->vertices);
+        if (sg_query_buffer_state(batch->bind.vertex_buffers[0]) == SG_RESOURCESTATE_VALID)
+            sg_destroy_buffer(batch->bind.vertex_buffers[0]);
+        free(batch);
+    }
+}
+
+static void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices) {
     TextureBatch *_batch = *batch;
     assert(batch && _batch->texture && sg_query_image_state(_batch->texture->internal) == SG_RESOURCESTATE_VALID);
     TextureBatch *new = CreateTextureBatch(_batch->texture, newMaxVertices);
@@ -143,12 +158,12 @@ void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices) {
     *batch = new;
 }
 
-void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+static void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
     GenerateQuad(position, batch->size, size, scale, viewportSize, rotation, clip, (Quad*)(batch->vertices + batch->vertexCount));
     batch->vertexCount += 6;
 }
 
-void FlushTextureBatch(TextureBatch *batch) {
+static void FlushTextureBatch(TextureBatch *batch) {
     sg_range range = {
         .ptr = batch->vertices,
         .size = batch->vertexCount * sizeof(Vertex)
@@ -158,16 +173,6 @@ void FlushTextureBatch(TextureBatch *batch) {
     sg_draw(0, batch->vertexCount, 1);
     memset(batch->vertices, 0, batch->maxVertices * sizeof(Vertex));
     batch->vertexCount = 0;
-}
-
-void DestroyTextureBatch(TextureBatch *batch) {
-    if (batch) {
-        if (batch->vertices)
-            free(batch->vertices);
-        if (sg_query_buffer_state(batch->bind.vertex_buffers[0]) == SG_RESOURCESTATE_VALID)
-            sg_destroy_buffer(batch->bind.vertex_buffers[0]);
-        free(batch);
-    }
 }
 
 typedef struct TextureBucket {
@@ -425,6 +430,23 @@ static int ParseArguments(int argc, char *argv[]) {
 
 // MARK: Program loop
 
+static int CompareScene(const void *a, const void *b, void *udata) {
+    const SceneBucket *ua = a;
+    const SceneBucket *ub = b;
+    return strcmp(ua->name, ub->name);
+}
+
+static uint64_t HashScene(const void *item, uint64_t seed0, uint64_t seed1) {
+    const SceneBucket *b = item;
+    return hashmap_sip(b->name, strlen(b->name), seed0, seed1);
+}
+
+static void FreeScene(void *item) {
+    SceneBucket *b = item;
+    if (b->wis->scene->deinit)
+        b->wis->scene->deinit(&state, b->wis->context);
+}
+
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -432,6 +454,27 @@ static void InitCallback(void) {
     };
     sg_setup(&desc);
     stm_setup();
+    
+    state.stateMap = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
+    state.textureMap = hashmap_new(sizeof(TextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
+    weeInit(&state);
+    
+#if defined(WEE_MAC)
+#define DYLIB_EXT ".dylib"
+#elif defined(WEE_WINDOWS)
+#define DYLIB_EXT ".dll"
+#elif defined(WEE_LINUX)
+#define DYLIB_EXT ".so"
+#endif
+    
+#if !defined(WEE_DYLIB_PATH)
+#define WEE_DYLIB_PATH ResolvePath("./");
+#endif
+    
+#define X(NAME) \
+    weeCreateScene(&state, NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
+WEE_SCENES
+#undef X
     
 #if defined(WEE_MAC)
     mach_timebase_info_data_t info;
@@ -563,6 +606,13 @@ static void FrameCallback(void) {
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     if (state.wis && state.wis->scene->frame)
         state.wis->scene->frame(&state, state.wis->context, render_time);
+    size_t iter = 0;
+    void *item;
+    while (hashmap_iter(state.textureMap, &iter, &item)) {
+        TextureBucket *bucket = item;
+        // TODO: Z-Sorting + draw ordering
+        FlushTextureBatch(bucket->batch);
+    }
     sg_end_pass();
     sg_commit();
     
@@ -591,23 +641,6 @@ static void CleanupCallback(void) {
 WEE_SCENES
 #undef X
     sg_shutdown();
-}
-
-static int CompareScene(const void *a, const void *b, void *udata) {
-    const SceneBucket *ua = a;
-    const SceneBucket *ub = b;
-    return strcmp(ua->name, ub->name);
-}
-
-static uint64_t HashScene(const void *item, uint64_t seed0, uint64_t seed1) {
-    const SceneBucket *b = item;
-    return hashmap_sip(b->name, strlen(b->name), seed0, seed1);
-}
-
-static void FreeScene(void *item) {
-    SceneBucket *b = item;
-    if (b->wis->scene->deinit)
-        b->wis->scene->deinit(&state, b->wis->context);
 }
 
 sapp_desc sokol_main(int argc, char* argv[]) {
@@ -640,26 +673,6 @@ sapp_desc sokol_main(int argc, char* argv[]) {
             abort();
         }
 #endif
-    
-    state.stateMap = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
-    state.textureMap = hashmap_new(sizeof(TextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
-#if defined(WEE_MAC)
-#define DYLIB_EXT ".dylib"
-#elif defined(WEE_WINDOWS)
-#define DYLIB_EXT ".dll"
-#elif defined(WEE_LINUX)
-#define DYLIB_EXT ".so"
-#endif
-    
-#if !defined(WEE_DYLIB_PATH)
-#define WEE_DYLIB_PATH ResolvePath("./");
-#endif
-    
-#define X(NAME) \
-    weeCreateScene(&state, NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
-WEE_SCENES
-#undef X
-    weeInit(&state);
     
     state.desc.init_cb = InitCallback;
     state.desc.frame_cb = FrameCallback;
@@ -746,31 +759,7 @@ void weeToggleCursorLock(weeState *state) {
     state->cursorLocked = !state->cursorLocked;
 }
 
-static int nextTextureID = 1;
-
-int weeLoadTexture(weeState *state, const char *path, const char *name) {
-    const char *_name = name ? strdup(name) : FileName(path);
-    TextureBucket search = {.name = _name};
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(!found);
-    
-    search.tid = nextTextureID++;
-    search.path = path;
-    search.texture = LoadTextureFromFile(path);
-    search.batch = CreateTextureBatch(search.texture, WEE_DEFAULT_BATCH_SIZE);
-    hashmap_set(state->stateMap, (void*)&search);
-    return search.tid;
-}
-
-void weeRenderTexture(weeState *state, int tid, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
-    TextureBucket search = {.tid = tid};
-    state->textureMap->compare = CompareTextureID;
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(found);
-    TextureBatchDraw(found->batch, position, size, scale, viewportSize, rotation, clip);
-}
-
-void weeRenderTextureByName(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+void weeRenderTexture(weeState *state, const char *name, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
     TextureBucket search = {.name = name};
     state->textureMap->compare = CompareTextureName;
     TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
@@ -778,15 +767,7 @@ void weeRenderTextureByName(weeState *state, const char *name, Vec2f position, V
     TextureBatchDraw(found->batch, position, size, scale, viewportSize, rotation, clip);
 }
 
-void weeUnloadTexture(weeState *state, int tid) {
-    TextureBucket search = {.tid = tid};
-    state->textureMap->compare = CompareTextureID;
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(found);
-    hashmap_delete(state->textureMap, (void*)found);
-}
-
-void weeUnloadTextureByName(weeState *state, const char *name) {
+void weeUnloadTexture(weeState *state, const char *name) {
     TextureBucket search = {.name = name};
     state->textureMap->compare = CompareTextureName;
     TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
