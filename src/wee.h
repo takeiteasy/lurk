@@ -250,35 +250,28 @@ typedef struct wis {
     struct wis *next;
 } weeInternalScene;
 
-// TODO: Turn these into easily modifiable option
-
+// TODO: Turn this into easily modifiable option
 #if !defined(WEE_MAX_MATRIX_STACK)
 #define WEE_MAX_MATRIX_STACK 32
-#endif
-
-#if !defined(WEE_DEFAULT_BATCH_SIZE)
-#define WEE_DEFAULT_BATCH_SIZE 1
 #endif
 
 typedef struct TextureBucket {
     uint64_t tid;
     const char *name, *path;
     Texture *texture;
-    TextureBatch *batch;
 } TextureBucket;
+
+typedef struct weeDrawCallDesc {
+    Vec2f position;
+    Vec2f viewport;
+    Vec2f scale;
+    Rect clip;
+    float rotation;
+} weeDrawCallDesc;
 
 typedef struct weeDrawCall {
     TextureBucket *bucket;
-    float positionX;
-    float positionY;
-    float sizeX;
-    float sizeY;
-    float scaleX;
-    float scaleY;
-    float viewportWidth;
-    float viewportHeight;
-    float rotation;
-    Rect clip;
+    weeDrawCallDesc desc;
 } weeDrawCall;
 
 typedef struct {
