@@ -261,17 +261,26 @@ typedef struct TextureBucket {
     Texture *texture;
 } TextureBucket;
 
+typedef enum weeDrawCallType {
+    DRAW_CALL_SINGLE,
+    DRAW_CALL_BATCH
+} weeDrawCallType;
+
 typedef struct weeDrawCallDesc {
+    int index;
     Vec2f position;
     Vec2f viewport;
     Vec2f scale;
     Rect clip;
     float rotation;
+    struct weeDrawCallDesc *head, *back, *next;
 } weeDrawCallDesc;
 
 typedef struct weeDrawCall {
     TextureBucket *bucket;
     weeDrawCallDesc desc;
+    TextureBatch *batch;
+    weeDrawCallType type;
 } weeDrawCall;
 
 typedef struct {
@@ -280,6 +289,9 @@ typedef struct {
     struct hashmap *textureMap;
     ezContainer *assets;
     ezStack drawCallStack;
+    weeDrawCallDesc drawCallDesc;
+    TextureBatch *currentBatch;
+    TextureBucket *currentTextureBucket;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -336,6 +348,17 @@ EXPORT void weeToggleCursorLock(weeState *state);
 
 EXPORT uint64_t weeFindTexture(weeState *state, const char *name);
 EXPORT void weeDrawTexture(weeState *state, uint64_t tid);
+EXPORT void weeBeginBatch(weeState *state, uint64_t tid);
+EXPORT void weeDrawTextureBatch(weeState *state);
+EXPORT void weeEndBatch(weeState *state);
+
+EXPORT void weeSetPosition(weeState *state, float x, float y);
+EXPORT void weePositionMoveBy(weeState *state, float dx, float dy);
+EXPORT void weeSetScale(weeState *state, float x, float y);
+EXPORT void weeScaleBy(weeState *state, float dx, float dy);
+EXPORT void weeSetClip(weeState *state, float x, float y, float w, float h);
+EXPORT void weeSetRotation(weeState *state, float angle);
+EXPORT void weeReset(weeState *state);
 
 extern weeState state;
 

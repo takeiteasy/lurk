@@ -137,25 +137,28 @@ static void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scal
     sg_draw(0, 6, 1);
     sg_destroy_buffer(bind.vertex_buffers[0]);
 }
+#endif
 
-static TextureBatch* CreateTextureBatch(Texture *texture, int max) {
+static TextureBatch* EmptyTextureBatch(Texture *texture) {
     TextureBatch *result = malloc(sizeof(TextureBatch));
-    result->maxVertices = max * 6;
-    result->vertexCount = 0;
+    memset(result, 0, sizeof(TextureBatch));
     result->size = (Vec2f){texture->w, texture->h};
-    result->vertices = malloc(result->maxVertices * sizeof(Vertex));
     result->texture = texture;
-    sg_buffer_desc desc = {
-        .usage = SG_USAGE_STREAM,
-        .size = result->maxVertices * sizeof(Vertex)
-    };
-    result->bind = (sg_bindings) {
-        .vertex_buffers[0] = sg_make_buffer(&desc),
-        .fs_images[SLOT_tex] = texture->internal
-    };
     return result;
 }
 
+#if !defined(WEE_STATE)
+static void CompileTextureBatch(TextureBatch *batch) {
+    batch->vertices = malloc(batch->maxVertices * sizeof(Vertex));
+    sg_buffer_desc desc = {
+        .usage = SG_USAGE_STREAM,
+        .size = batch->maxVertices * sizeof(Vertex)
+    };
+    batch->bind = (sg_bindings) {
+        .vertex_buffers[0] = sg_make_buffer(&desc),
+        .fs_images[SLOT_tex] = batch->texture->internal
+    };
+}
 static void DestroyTextureBatch(TextureBatch *batch) {
     if (batch) {
         if (batch->vertices)
@@ -164,14 +167,6 @@ static void DestroyTextureBatch(TextureBatch *batch) {
             sg_destroy_buffer(batch->bind.vertex_buffers[0]);
         free(batch);
     }
-}
-
-static void ResizeTextureBatch(TextureBatch **batch, int newMaxVertices) {
-    TextureBatch *_batch = *batch;
-    assert(batch && _batch->texture && sg_query_image_state(_batch->texture->internal) == SG_RESOURCESTATE_VALID);
-    TextureBatch *new = CreateTextureBatch(_batch->texture, newMaxVertices);
-    DestroyTextureBatch(_batch);
-    *batch = new;
 }
 
 static void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
@@ -216,6 +211,7 @@ weeState state = {
     }
 };
 #endif
+
 static weeState *currentState = NULL;
 
 void weeInit(weeState *state) {
@@ -500,23 +496,15 @@ static void InitCallback(void) {
     };
     state.pip = sg_make_pipeline(&offscreen_desc);
     
-    weeInit(&state);
-#if defined(WEE_MAC)
-#define DYLIB_EXT ".dylib"
-#elif defined(WEE_WINDOWS)
-#define DYLIB_EXT ".dll"
-#elif defined(WEE_LINUX)
-#define DYLIB_EXT ".so"
-#endif
-    
-#if !defined(WEE_DYLIB_PATH)
-#define WEE_DYLIB_PATH ResolvePath("./");
-#endif
-    
-#define X(NAME) \
-    weeCreateScene(&state, NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
-WEE_SCENES
-#undef X
+    state.windowWidth = sapp_width();
+    state.windowHeight = sapp_height();
+    state.drawCallDesc = (weeDrawCallDesc) {
+        .position = Vec2Zero(),
+        .viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight),
+        .scale = Vec2New(1.f, 1.f),
+        .clip = (Rect){0.f, 0.f, 0.f, 0.f},
+        .rotation = 0.f
+    };
     
 #if defined(WEE_MAC)
     mach_timebase_info_data_t info;
@@ -553,9 +541,23 @@ WEE_SCENES
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
     
-    state.windowWidth = sapp_width();
-    state.windowHeight = sapp_height();
+    weeInit(&state);
+#if defined(WEE_MAC)
+#define DYLIB_EXT ".dylib"
+#elif defined(WEE_WINDOWS)
+#define DYLIB_EXT ".dll"
+#elif defined(WEE_LINUX)
+#define DYLIB_EXT ".so"
+#endif
     
+#if !defined(WEE_DYLIB_PATH)
+#define WEE_DYLIB_PATH ResolvePath("./");
+#endif
+    
+#define X(NAME) \
+    weeCreateScene(&state, NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
+WEE_SCENES
+#undef X
     weePushScene(&state, WEE_FIRST_SCENE);
 }
 
@@ -653,17 +655,40 @@ static void FrameCallback(void) {
     ezStackEntry *callEntry = NULL;
     while ((callEntry = ezStackDrop(&state.drawCallStack))) {
         weeDrawCall *call = callEntry->data;
-        DrawTexture(call->bucket->texture, call->desc.position, Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h), call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
+        Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
+        switch (call->type) {
+            case DRAW_CALL_SINGLE:
+                if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
+                    call->desc.clip.w = size.x;
+                    call->desc.clip.h = size.y;
+                }
+                DrawTexture(call->bucket->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
+                break;
+            case DRAW_CALL_BATCH: {
+                weeDrawCallDesc *cursor = call->desc.head;
+                call->batch->maxVertices = call->desc.back->index * 6;
+                CompileTextureBatch(call->batch);
+                while (cursor) {
+                    weeDrawCallDesc *tmp = cursor->next;
+                    if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
+                        cursor->clip.w = size.x;
+                        cursor->clip.h = size.y;
+                    }
+                    TextureBatchDraw(call->batch, cursor->position, size, cursor->scale, cursor->viewport, cursor->rotation, cursor->clip);
+                    free(cursor);
+                    cursor = tmp;
+                }
+                FlushTextureBatch(call->batch);
+                DestroyTextureBatch(call->batch);
+                state.drawCallDesc.head = state.drawCallDesc.back = state.drawCallDesc.next = NULL;
+                break;
+            }
+            default:
+                assert(0);
+        }
+        free(call);
+        free(callEntry);
     }
-    
-//    size_t iter = 0;
-//    void *item;
-//    while (hashmap_iter(state.textureMap, &iter, &item)) {
-//        TextureBucket *bucket = item;
-//        // TODO: Z-Sorting + draw ordering
-//        if (bucket->batch->vertexCount > 0)
-//            FlushTextureBatch(bucket->batch);
-//    }
     
     sg_end_pass();
     sg_commit();
@@ -826,12 +851,75 @@ void weeDrawTexture(weeState *state, uint64_t tid) {
     assert(found);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
     call->bucket = found;
-    call->desc = (weeDrawCallDesc) {
-        .position = Vec2New(0.f, 0.f),
-        .scale = Vec2New(1.f, 1.f),
-        .viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight),
-        .clip = (Rect){0.f, 0.f, found->texture->w, found->texture->h},
-        .rotation = 0.f,
-    };
+    call->type = DRAW_CALL_SINGLE;
+    memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
     ezStackAppend(&state->drawCallStack, 0, (void*)call);
+}
+
+void weeBeginBatch(weeState *state, uint64_t tid) {
+    assert(!state->currentBatch);
+    assert(tid);
+    TextureBucket search = {.tid=tid};
+    state->textureMap->compare = CompareTextureID;
+    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
+    assert(found);
+    state->currentTextureBucket = found;
+    state->currentBatch = EmptyTextureBatch(found->texture);
+}
+
+void weeDrawTextureBatch(weeState *state) {
+    assert(state->currentBatch);
+    weeDrawCallDesc *node = malloc(sizeof(weeDrawCallDesc));
+    node->next =  NULL;
+    memcpy(node, &state->drawCallDesc, sizeof(weeDrawCallDesc));
+    
+    if (!state->drawCallDesc.head) {
+        node->index = 1;
+        state->drawCallDesc.head = state->drawCallDesc.back = node;
+    } else {
+        node->index = state->drawCallDesc.back->index + 1;
+        state->drawCallDesc.back->next = node;
+        state->drawCallDesc.back = node;
+    }
+}
+
+void weeEndBatch(weeState *state) {
+    assert(state->currentBatch);
+    weeDrawCall *call = malloc(sizeof(weeDrawCall));
+    call->bucket = state->currentTextureBucket;
+    call->batch = state->currentBatch;
+    call->type = DRAW_CALL_BATCH;
+    memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
+    ezStackAppend(&state->drawCallStack, 0, (void*)call);
+    state->currentBatch = NULL;
+    state->currentTextureBucket = NULL;
+}
+
+void weeSetPosition(weeState *state, float x, float y) {
+    state->drawCallDesc.position = Vec2New(x, y);
+}
+
+void weePositionMoveBy(weeState *state, float dx, float dy) {
+    state->drawCallDesc.position += Vec2New(dx, dy);
+}
+
+void weeSetScale(weeState *state, float x, float y) {
+    state->drawCallDesc.scale = Vec2New(x, y);
+}
+
+void weeScaleBy(weeState *state, float dx, float dy) {
+    state->drawCallDesc.scale += Vec2New(dx, dy);
+}
+
+void weeSetClip(weeState *state, float x, float y, float w, float h) {
+    state->drawCallDesc.clip = (Rect){x, y, w, h};
+}
+
+void weeSetRotation(weeState *state, float angle) {
+    state->drawCallDesc.rotation = angle;
+}
+
+void weeReset(weeState *state) {
+    memset(&state->drawCallDesc, 0, sizeof(weeDrawCallDesc));
+    state->drawCallDesc.viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight);
 }
