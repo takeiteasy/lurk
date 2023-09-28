@@ -1,7 +1,7 @@
 #include "wee.h"
 
 struct weeeeeeeeeeeeeeeeeee {
-    int test;
+    uint64_t test;
 };
 
 static weeeeeeeeeeeeeeee* init(weeState* state) {

@@ -36,6 +36,7 @@ static Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
+//        .pixel_format = SG_PIXELFORMAT_RGBA8,
         .usage = SG_USAGE_STREAM
     };
     return NewTexture(&desc);
@@ -471,6 +472,37 @@ static void InitCallback(void) {
     
     state.drawCallStack.front = state.drawCallStack.back = NULL;
     
+    sg_pipeline_desc offscreen_desc = {
+        .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
+        .shader = sg_make_shader(texture_program_shader_desc(sg_query_backend())),
+        .layout = {
+            .buffers[0].stride = sizeof(Vertex),
+            .attrs = {
+                [ATTR_texture_vs_position].format=SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_texture_vs_texcoord].format=SG_VERTEXFORMAT_FLOAT2,
+                [ATTR_texture_vs_color].format=SG_VERTEXFORMAT_FLOAT4
+            }
+        },
+        .depth = {
+//            .pixel_format = SG_PIXELFORMAT_DEPTH,
+            .compare = SG_COMPAREFUNC_LESS_EQUAL,
+            .write_enabled = true,
+        },
+        .colors[0] = {
+            .blend = {
+                .enabled = true,
+                .src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
+                .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                .op_rgb = SG_BLENDOP_ADD,
+                .src_factor_alpha = SG_BLENDFACTOR_ONE,
+                .dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
+                .op_alpha = SG_BLENDOP_ADD
+            },
+//            .pixel_format = SG_PIXELFORMAT_RGBA8
+        }
+    };
+    state.pip = sg_make_pipeline(&offscreen_desc);
+    
     weeInit(&state);
 #if defined(WEE_MAC)
 #define DYLIB_EXT ".dylib"
@@ -617,23 +649,25 @@ static void FrameCallback(void) {
     }
     
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
+    sg_apply_pipeline(state.pip);
     if (state.wis && state.wis->scene->frame)
         state.wis->scene->frame(&state, state.wis->context, render_time);
     
     ezStackEntry *callEntry = NULL;
     while ((callEntry = ezStackDrop(&state.drawCallStack))) {
         weeDrawCall *call = callEntry->data;
-        TextureBatchDraw(call->bucket->batch, call->position, call->size, call->scale, call->viewportSize, call->rotation, call->clip);
+        DrawTexture(call->bucket->texture, Vec2New(call->positionX, call->positionY), Vec2New(call->sizeX, call->sizeY), Vec2New(call->scaleX, call->scaleY), Vec2New(call->viewportWidth, call->viewportHeight), call->rotation, call->clip);
+        printf("%f, %f\n", call->viewportWidth, call->viewportHeight);
     }
     
-    size_t iter = 0;
-    void *item;
-    while (hashmap_iter(state.textureMap, &iter, &item)) {
-        TextureBucket *bucket = item;
-        // TODO: Z-Sorting + draw ordering
-        if (bucket->batch->vertexCount > 0)
-            FlushTextureBatch(bucket->batch);
-    }
+//    size_t iter = 0;
+//    void *item;
+//    while (hashmap_iter(state.textureMap, &iter, &item)) {
+//        TextureBucket *bucket = item;
+//        // TODO: Z-Sorting + draw ordering
+//        if (bucket->batch->vertexCount > 0)
+//            FlushTextureBatch(bucket->batch);
+//    }
     
     sg_end_pass();
     sg_commit();
@@ -658,6 +692,7 @@ static void EventCallback(const sapp_event* e) {
 static void CleanupCallback(void) {
     state.running = false;
     sg_destroy_pipeline(state.pip);
+    ezContainerFree(state.assets);
 #define X(NAME) \
     weeDestroyScene(&state, NAME);
 WEE_SCENES
@@ -792,14 +827,20 @@ void weeDrawTexture(weeState *state, uint64_t tid) {
     TextureBucket search = {.name = "test.png"};
 //    state->textureMap->compare = CompareTextureID;
     TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
+    printf("%d, %d\n", found->texture->w, found->texture->h);
+    printf("%d, %d\n", state->windowWidth, state->windowHeight);
     assert(found);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
-    call->size = Vec2New(found->texture->w, found->texture->h);
-    call->scale = Vec2New(1.f, 1.f);
-    call->position = Vec2New(0.f, 0.f);
+    call->sizeX = (float)found->texture->w;
+    call->sizeY = (float)found->texture->h;
+    call->scaleX = 1.f;
+    call->scaleY = 1.f;
+    call->positionX = 0.f;
+    call->positionY = 0.f;
     call->rotation = 0.f;
     call->clip = (Rect){0.f, 0.f, found->texture->w, found->texture->h};
     call->bucket = found;
-    call->viewportSize = Vec2New(state->desc.width, state->desc.height);
+    call->viewportWidth = (float)state->windowWidth;
+    call->viewportHeight = (float)state->windowHeight;
     ezStackAppend(&state->drawCallStack, 0, (void*)call);
 }

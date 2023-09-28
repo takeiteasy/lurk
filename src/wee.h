@@ -269,10 +269,14 @@ typedef struct TextureBucket {
 
 typedef struct weeDrawCall {
     TextureBucket *bucket;
-    Vec2f position;
-    Vec2f size;
-    Vec2f scale;
-    Vec2f viewportSize;
+    float positionX;
+    float positionY;
+    float sizeX;
+    float sizeY;
+    float scaleX;
+    float scaleY;
+    float viewportWidth;
+    float viewportHeight;
     float rotation;
     Rect clip;
 } weeDrawCall;
