@@ -206,34 +206,27 @@ typedef enum bool {
     X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
     X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
 
-typedef union {
-    struct {
-        unsigned char a, b, g, r;
-    };
-    int value;
-} Color;
-
-typedef struct {
+typedef struct weeVertex {
     Vec2f position, texcoord;
     Vec4f color;
-} Vertex;
+} weeVertex;
 
-typedef struct {
+typedef struct weeRect {
     float x, y, w, h;
-} Rect;
+} weeRect;
 
-typedef struct {
+typedef struct weeTexture {
     sg_image internal;
     int w, h;
-} Texture;
+} weeTexture;
 
-typedef struct {
-    Texture *texture;
-    Vertex *vertices;
+typedef struct weeTextureBatch {
+    weeTexture *texture;
+    weeVertex *vertices;
     int maxVertices, vertexCount;
     sg_bindings bind;
     Vec2f size;
-} TextureBatch;
+} weeTextureBatch;
 
 typedef struct weeScene weeScene;
 
@@ -250,16 +243,11 @@ typedef struct wis {
     struct wis *next;
 } weeInternalScene;
 
-// TODO: Turn this into easily modifiable option
-#if !defined(WEE_MAX_MATRIX_STACK)
-#define WEE_MAX_MATRIX_STACK 32
-#endif
-
 typedef struct TextureBucket {
     uint64_t tid;
     const char *name, *path;
-    Texture *texture;
-} TextureBucket;
+    weeTexture *texture;
+} weeTextureBucket;
 
 typedef enum weeDrawCallType {
     DRAW_CALL_SINGLE,
@@ -271,27 +259,27 @@ typedef struct weeDrawCallDesc {
     Vec2f position;
     Vec2f viewport;
     Vec2f scale;
-    Rect clip;
+    weeRect clip;
     float rotation;
     struct weeDrawCallDesc *head, *back, *next;
 } weeDrawCallDesc;
 
 typedef struct weeDrawCall {
-    TextureBucket *bucket;
+    weeTextureBucket *bucket;
     weeDrawCallDesc desc;
-    TextureBatch *batch;
+    weeTextureBatch *batch;
     weeDrawCallType type;
 } weeDrawCall;
 
-typedef struct {
+typedef struct weeState {
     weeInternalScene *wis;
     struct hashmap *stateMap;
     struct hashmap *textureMap;
     ezContainer *assets;
     ezStack drawCallStack;
     weeDrawCallDesc drawCallDesc;
-    TextureBatch *currentBatch;
-    TextureBucket *currentTextureBucket;
+    weeTextureBatch *currentBatch;
+    weeTextureBucket *currentTextureBucket;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -319,7 +307,7 @@ typedef struct {
 } weeState;
 
 struct weeScene {
-    weeeee*(*init)(weeState*);
+    weee*(*init)(weeState*);
     void (*deinit)(weeState*, weeeeeee*);
     void (*reload)(weeState*, weeeeeee*);
     void (*unload)(weeState*, weeeeeee*);
@@ -358,6 +346,7 @@ EXPORT void weeSetScale(weeState *state, float x, float y);
 EXPORT void weeScaleBy(weeState *state, float dx, float dy);
 EXPORT void weeSetClip(weeState *state, float x, float y, float w, float h);
 EXPORT void weeSetRotation(weeState *state, float angle);
+EXPORT void weeRotateBy(weeState *state, float angle);
 EXPORT void weeReset(weeState *state);
 
 extern weeState state;

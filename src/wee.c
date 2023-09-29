@@ -9,14 +9,14 @@
 #include "wee.h"
 
 static int CompareTextureID(const void *a, const void *b, void *udata) {
-    const TextureBucket *ua = a;
-    const TextureBucket *ub = b;
+    const weeTextureBucket *ua = a;
+    const weeTextureBucket *ub = b;
     return ua->tid == ub->tid ? 0 : 1;
 }
 
 static int CompareTextureName(const void *a, const void *b, void *udata) {
-    const TextureBucket *ua = a;
-    const TextureBucket *ub = b;
+    const weeTextureBucket *ua = a;
+    const weeTextureBucket *ub = b;
     return strcmp(ua->name, ub->name);
 }
 
@@ -24,15 +24,15 @@ static int CompareTextureName(const void *a, const void *b, void *udata) {
 #include "framebuffer.glsl.h"
 #include "texture.glsl.h"
 
-static Texture* NewTexture(sg_image_desc *desc) {
-    Texture *result = malloc(sizeof(Texture));
+static weeTexture* NewTexture(sg_image_desc *desc) {
+    weeTexture *result = malloc(sizeof(weeTexture));
     result->internal = sg_make_image(desc);
     result->w = desc->width;
     result->h = desc->height;
     return result;
 }
 
-static Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
+static weeTexture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
@@ -42,7 +42,7 @@ static Texture* CreateEmptyTexture(unsigned int w, unsigned int h) {
     return NewTexture(&desc);
 }
 
-static void DestroyTexture(Texture *texture) {
+static void DestroyTexture(weeTexture *texture) {
     if (texture) {
         if (sg_query_image_state(texture->internal) == SG_RESOURCESTATE_VALID)
             sg_destroy_image(texture->internal);
@@ -50,7 +50,7 @@ static void DestroyTexture(Texture *texture) {
     }
 }
 
-static void UpdateTexture(Texture *texture, ezImage *img) {
+static void UpdateTexture(weeTexture *texture, ezImage *img) {
     if (texture->w != img->w || texture->h != img->h) {
         DestroyTexture(texture);
         texture = CreateEmptyTexture(img->w, img->h);
@@ -64,22 +64,22 @@ static void UpdateTexture(Texture *texture, ezImage *img) {
     sg_update_image(texture->internal, &data);
 }
 
-static Texture* LoadTextureFromImage(ezImage *img) {
-    Texture *result = CreateEmptyTexture(img->w, img->h);
+static weeTexture* LoadTextureFromImage(ezImage *img) {
+    weeTexture *result = CreateEmptyTexture(img->w, img->h);
     UpdateTexture(result, img);
     return result;
 }
 
-static Texture* LoadTextureFromFile(const char *path) {
+static weeTexture* LoadTextureFromFile(const char *path) {
     ezImage *img = ezImageLoadFromPath(path);
-    Texture *result = LoadTextureFromImage(img);
+    weeTexture *result = LoadTextureFromImage(img);
     ezImageFree(img);
     return result;
 }
 
-typedef Vertex Quad[6];
+typedef weeVertex Quad[6];
 
-static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip, Quad *out) {
+static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip, Quad *out) {
     Vec2f quad[4] = {
         {position.x, position.y + size.y}, // bottom left
         {position.x + size.x, position.y + size.y}, // bottom right
@@ -111,14 +111,14 @@ static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f sc
     };
     
     for (int i = 0; i < 6; i++)
-        (*out)[i] = (Vertex) {
+        (*out)[i] = (weeVertex) {
             .position = quad[indices[i]],
             .texcoord = vtexquad[indices[i]],
             .color = {1.f, 1.f, 1.f, 1.f}
         };
 }
 
-static void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+static void DrawTexture(weeTexture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip) {
     Quad quad;
     Vec2f textureSize = {texture->w, texture->h};
     if (clip.w < 0 && clip.h < 0) {
@@ -139,27 +139,27 @@ static void DrawTexture(Texture *texture, Vec2f position, Vec2f size, Vec2f scal
 }
 #endif
 
-static TextureBatch* EmptyTextureBatch(Texture *texture) {
-    TextureBatch *result = malloc(sizeof(TextureBatch));
-    memset(result, 0, sizeof(TextureBatch));
+static weeTextureBatch* EmptyTextureBatch(weeTexture *texture) {
+    weeTextureBatch *result = malloc(sizeof(weeTextureBatch));
+    memset(result, 0, sizeof(weeTextureBatch));
     result->size = (Vec2f){texture->w, texture->h};
     result->texture = texture;
     return result;
 }
 
 #if !defined(WEE_STATE)
-static void CompileTextureBatch(TextureBatch *batch) {
-    batch->vertices = malloc(batch->maxVertices * sizeof(Vertex));
+static void CompileTextureBatch(weeTextureBatch *batch) {
+    batch->vertices = malloc(batch->maxVertices * sizeof(weeVertex));
     sg_buffer_desc desc = {
         .usage = SG_USAGE_STREAM,
-        .size = batch->maxVertices * sizeof(Vertex)
+        .size = batch->maxVertices * sizeof(weeVertex)
     };
     batch->bind = (sg_bindings) {
         .vertex_buffers[0] = sg_make_buffer(&desc),
         .fs_images[SLOT_tex] = batch->texture->internal
     };
 }
-static void DestroyTextureBatch(TextureBatch *batch) {
+static void DestroyTextureBatch(weeTextureBatch *batch) {
     if (batch) {
         if (batch->vertices)
             free(batch->vertices);
@@ -169,30 +169,30 @@ static void DestroyTextureBatch(TextureBatch *batch) {
     }
 }
 
-static void TextureBatchDraw(TextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, Rect clip) {
+static void TextureBatchDraw(weeTextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip) {
     GenerateQuad(position, batch->size, size, scale, viewportSize, rotation, clip, (Quad*)(batch->vertices + batch->vertexCount));
     batch->vertexCount += 6;
 }
 
-static void FlushTextureBatch(TextureBatch *batch) {
+static void FlushTextureBatch(weeTextureBatch *batch) {
     sg_range range = {
         .ptr = batch->vertices,
-        .size = batch->vertexCount * sizeof(Vertex)
+        .size = batch->vertexCount * sizeof(weeVertex)
     };
     sg_update_buffer(batch->bind.vertex_buffers[0], &range);
     sg_apply_bindings(&batch->bind);
     sg_draw(0, batch->vertexCount, 1);
-    memset(batch->vertices, 0, batch->maxVertices * sizeof(Vertex));
+    memset(batch->vertices, 0, batch->maxVertices * sizeof(weeVertex));
     batch->vertexCount = 0;
 }
 
 static uint64_t HashTexture(const void *item, uint64_t seed0, uint64_t seed1) {
-    const TextureBucket *b = item;
+    const weeTextureBucket *b = item;
     return b->name ? hashmap_sip(b->name, strlen(b->name), seed0, seed1) : b->tid;
 }
 
 static void FreeTexture(void *item) {
-    TextureBucket *b = item;
+    weeTextureBucket *b = item;
     if (b)
         DestroyTexture(b->texture);
 }
@@ -445,7 +445,7 @@ static void InitCallback(void) {
     stm_setup();
     
     state.stateMap = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
-    state.textureMap = hashmap_new(sizeof(TextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
+    state.textureMap = hashmap_new(sizeof(weeTextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
    
     state.assets = ezContainerRead(WEE_ASSETS_PATH);
     for (int i = 0; i < state.assets->sizeOfEntries; i++) {
@@ -453,8 +453,8 @@ static void InitCallback(void) {
         state.textureMap->compare = CompareTextureName;
         const char *ext = FileExt(e->filePath);
         if (!strncmp(ext, "png", 3)) {
-            TextureBucket search = {.name = FileName(e->filePath)};
-            TextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
+            weeTextureBucket search = {.name = FileName(e->filePath)};
+            weeTextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
             assert(!found);
             search.texture = LoadTextureFromFile(e->filePath);
             search.tid = state.textureMap->hash((void*)&search, 0, 0) << 16 >> 16;;
@@ -469,7 +469,7 @@ static void InitCallback(void) {
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
         .shader = sg_make_shader(texture_program_shader_desc(sg_query_backend())),
         .layout = {
-            .buffers[0].stride = sizeof(Vertex),
+            .buffers[0].stride = sizeof(weeVertex),
             .attrs = {
                 [ATTR_texture_vs_position].format=SG_VERTEXFORMAT_FLOAT2,
                 [ATTR_texture_vs_texcoord].format=SG_VERTEXFORMAT_FLOAT2,
@@ -502,7 +502,7 @@ static void InitCallback(void) {
         .position = Vec2Zero(),
         .viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight),
         .scale = Vec2New(1.f, 1.f),
-        .clip = (Rect){0.f, 0.f, 0.f, 0.f},
+        .clip = (weeRect){0.f, 0.f, 0.f, 0.f},
         .rotation = 0.f
     };
     
@@ -837,17 +837,17 @@ void weeToggleCursorLock(weeState *state) {
 }
 
 uint64_t weeFindTexture(weeState *state, const char *name) {
-    TextureBucket search = {.name = name};
+    weeTextureBucket search = {.name = name};
     state->textureMap->compare = CompareTextureName;
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
+    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
     return found ? found->tid : 0;
 }
 
 void weeDrawTexture(weeState *state, uint64_t tid) {
     assert(tid);
-    TextureBucket search = {.tid=tid};
+    weeTextureBucket search = {.tid=tid};
     state->textureMap->compare = CompareTextureID;
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
+    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
     assert(found);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
     call->bucket = found;
@@ -859,9 +859,9 @@ void weeDrawTexture(weeState *state, uint64_t tid) {
 void weeBeginBatch(weeState *state, uint64_t tid) {
     assert(!state->currentBatch);
     assert(tid);
-    TextureBucket search = {.tid=tid};
+    weeTextureBucket search = {.tid=tid};
     state->textureMap->compare = CompareTextureID;
-    TextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
+    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
     assert(found);
     state->currentTextureBucket = found;
     state->currentBatch = EmptyTextureBatch(found->texture);
@@ -912,11 +912,15 @@ void weeScaleBy(weeState *state, float dx, float dy) {
 }
 
 void weeSetClip(weeState *state, float x, float y, float w, float h) {
-    state->drawCallDesc.clip = (Rect){x, y, w, h};
+    state->drawCallDesc.clip = (weeRect){x, y, w, h};
 }
 
 void weeSetRotation(weeState *state, float angle) {
     state->drawCallDesc.rotation = angle;
+}
+
+void weeRotateBy(weeState *state, float angle) {
+    state->drawCallDesc.rotation += angle;
 }
 
 void weeReset(weeState *state) {
