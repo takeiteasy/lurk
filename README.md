@@ -1,15 +1,9 @@
 # wee
 
-## About
-
 _Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
 
 > [!WARNING]
 > Work in progress
-
-## Gallery
-
-Nothing to see yet
 
 ## Dependencies
 
