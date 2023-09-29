@@ -46,7 +46,7 @@ targets:
         - path: src/
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL,-fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]
   game:
     type: library.dynamic
     platform: macOS
@@ -54,5 +54,5 @@ targets:
         - path: game/game.c
         - path: src/
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL,-fenable-matrix, -DWEE_STATE]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]

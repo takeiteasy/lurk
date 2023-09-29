@@ -154,8 +154,15 @@ typedef enum bool {
 #include "sokol_gfx.h"
 #include "sokol_app.h"
 #include "sokol_glue.h"
+#if defined(WEE_STATE) && defined(SOKOL_IMPL)
+#undef SOKOL_IMPL
 #include "sokol_args.h"
 #include "sokol_time.h"
+#define SOKOL_IMPL
+#else
+#include "sokol_args.h"
+#include "sokol_time.h"
+#endif
 #include "jim.h"
 #include "mjson.h"
 #include "hashmap.h"

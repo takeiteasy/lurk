@@ -5,6 +5,14 @@
 //  Created by George Watson on 21/07/2023.
 //
 
+#define SOKOL_IMPL
+#define JIM_IMPLEMENTATION
+#define MJSON_IMPLEMENTATION
+#define HASHMAP_IMPL
+#define QOI_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define EZ_IMPLEMENTATION
 #include "wee.h"
 
 static int CompareTextureID(const void *a, const void *b, void *udata) {
