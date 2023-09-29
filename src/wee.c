@@ -383,8 +383,13 @@ static int ExportConfig(const char *path) {
 static int ParseArguments(int argc, char *argv[]) {
     const char *name = argv[0];
     sargs_desc desc = (sargs_desc) {
+#if defined WEE_EMSCRIPTEN
+        .argc = argc,
+        .argv = (char**)argv
+#else
         .argc = argc - 1,
         .argv = (char**)(argv + 1)
+#endif
     };
     sargs_setup(&desc);
     

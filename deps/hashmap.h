@@ -662,7 +662,7 @@ uint64_t hashmap_murmur(const void *data, size_t len,
                         uint64_t seed0, uint64_t seed1)
 {
     char out[16];
-    MM86128(data, len, seed0, &out);
+    MM86128(data, (int)len, (uint32_t)seed0, &out);
     return *(uint64_t*)out;
 }
 
