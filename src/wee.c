@@ -561,6 +561,9 @@ static void InitCallback(void) {
         .rotation = 0.f
     };
     
+    memset(&state.textureStack, 0, MAX_TEXTURE_STACK * sizeof(uint64_t));
+    state.textureStackCount = 0;
+    
 #if defined(WEE_MAC)
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
@@ -900,28 +903,39 @@ uint64_t weeFindTexture(weeState *state, const char *name) {
     return found ? found->tid : 0;
 }
 
-void weeDrawTexture(weeState *state, uint64_t tid) {
+void weePushTexture(weeState *state, uint64_t tid) {
+    assert(state->textureStackCount < MAX_TEXTURE_STACK);
     assert(tid);
     weeTextureBucket search = {.tid=tid};
     state->textureMap->compare = CompareTextureID;
     weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
     assert(found);
+    state->textureStack[state->textureStackCount++] = tid;
+    state->currentTextureBucket = found;
+}
+
+uint64_t weePopTexture(weeState *state) {
+    assert(state->textureStackCount > 0);
+    uint64_t result = state->textureStack[state->textureStackCount-1];
+    state->textureStack[state->textureStackCount--] = 0;
+    return result;
+}
+
+void weeDrawTexture(weeState *state) {
+    uint64_t tid = state->textureStack[state->textureStackCount-1];
+    assert(tid && state->currentTextureBucket);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
-    call->bucket = found;
+    call->bucket = state->currentTextureBucket;
     call->type = DRAW_CALL_SINGLE;
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
     ezStackAppend(&state->drawCallStack, 0, (void*)call);
 }
 
-void weeBeginBatch(weeState *state, uint64_t tid) {
+void weeBeginBatch(weeState *state) {
     assert(!state->currentBatch);
-    assert(tid);
-    weeTextureBucket search = {.tid=tid};
-    state->textureMap->compare = CompareTextureID;
-    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(found);
-    state->currentTextureBucket = found;
-    state->currentBatch = EmptyTextureBatch(found->texture);
+    uint64_t tid = state->textureStack[state->textureStackCount-1];
+    assert(tid && state->currentTextureBucket);
+    state->currentBatch = EmptyTextureBatch(state->currentTextureBucket->texture);
 }
 
 void weeDrawTextureBatch(weeState *state) {
@@ -949,7 +963,6 @@ void weeEndBatch(weeState *state) {
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
     ezStackAppend(&state->drawCallStack, 0, (void*)call);
     state->currentBatch = NULL;
-    state->currentTextureBucket = NULL;
 }
 
 void weeSetPosition(weeState *state, float x, float y) {

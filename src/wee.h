@@ -170,6 +170,7 @@ typedef enum bool {
 #define STB_NO_GIF
 #include "stb_image.h"
 #include "stb_image_write.h"
+#include "ezimage.h"
 #include "ezmath.h"
 #include "ezrng.h"
 #include "ezfs.h"
@@ -277,6 +278,10 @@ typedef struct weeDrawCall {
     weeDrawCallType type;
 } weeDrawCall;
 
+#if !defined(MAX_TEXTURE_STACK)
+#define MAX_TEXTURE_STACK 8
+#endif
+
 typedef struct weeState {
     weeInternalScene *wis;
     struct hashmap *stateMap;
@@ -286,6 +291,8 @@ typedef struct weeState {
     weeDrawCallDesc drawCallDesc;
     weeTextureBatch *currentBatch;
     weeTextureBucket *currentTextureBucket;
+    uint64_t textureStack[MAX_TEXTURE_STACK];
+    int textureStackCount;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -341,8 +348,10 @@ EXPORT int weeIsCursorLocked(weeState *state);
 EXPORT void weeToggleCursorLock(weeState *state);
 
 EXPORT uint64_t weeFindTexture(weeState *state, const char *name);
-EXPORT void weeDrawTexture(weeState *state, uint64_t tid);
-EXPORT void weeBeginBatch(weeState *state, uint64_t tid);
+EXPORT void weePushTexture(weeState *state, uint64_t tid);
+EXPORT uint64_t weePopTexture(weeState *state);
+EXPORT void weeDrawTexture(weeState *state);
+EXPORT void weeBeginBatch(weeState *state);
 EXPORT void weeDrawTextureBatch(weeState *state);
 EXPORT void weeEndBatch(weeState *state);
 

@@ -8,6 +8,7 @@ _Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
 > Work in progress
 
 ## Gallery
+
 Nothing to see yet
 
 ## Dependencies
@@ -37,7 +38,7 @@ Nothing to see yet
 - [raysan5/raylib](https://github.com/raysan5/raylib/)
     - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)
 - [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)
-    - Hot-reloading libraries was based off this example
+    - Hot reloading dynamic libraries was based off this example
 - [TylerGlaiel/FrameTimingControl](https://github.com/TylerGlaiel/FrameTimingControl)
     - Game loop timing based off the article ["How to make your game run at 60fps"](https://medium.com/@tglaiel/how-to-make-your-game-run-at-60fps-24c61210fe75)
 

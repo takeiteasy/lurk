@@ -71,7 +71,7 @@ clean:
 	rm -rf build/ || yes
 	mkdir build/
 
-all: clean shaders scenes debug
+all: clean assets shaders scenes debug
 
 default: scenes
 
