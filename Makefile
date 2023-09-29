@@ -62,10 +62,10 @@ game/assets.ezc:
 assets: game/assets.ezc
 
 debug:
-	$(CC) $(INCLUDE) -g -DWEE_DEBUG -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 
 release:
-		$(CC) $(INCLUDE) -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+		$(CC) $(INCLUDE) -DWEE_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
 
 clean:
 	rm -rf build/ || yes

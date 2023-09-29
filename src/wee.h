@@ -237,7 +237,7 @@ typedef struct weeTextureBatch {
 
 typedef struct weeScene weeScene;
 
-typedef struct wis {
+typedef struct weeInternalScene {
     const char *path;
     void *handle;
 #if defined(WEE_POSIX)
@@ -247,7 +247,7 @@ typedef struct wis {
 #endif
     weeeeeeeeeeeeeeeeeeeeeeeeeeeee *context;
     weeScene *scene;
-    struct wis *next;
+    struct weeInternalScene *next;
 } weeInternalScene;
 
 typedef struct TextureBucket {

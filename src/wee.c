@@ -15,6 +15,10 @@
 #define EZ_IMPLEMENTATION
 #include "wee.h"
 
+#if defined(WEE_RELEASE)
+#define WEE_DISABLE_SCENE_RELOAD
+#endif
+
 static int CompareTextureID(const void *a, const void *b, void *udata) {
     const weeTextureBucket *ua = a;
     const weeTextureBucket *ub = b;
@@ -280,9 +284,11 @@ static bool ShouldReloadLibrary(weeInternalScene *wis) {
 }
 
 static bool ReloadLibrary(weeInternalScene *wis) {
+#if !defined(WEE_DISABLE_SCENE_RELOAD)
     assert(wis);
     if (!ShouldReloadLibrary(wis))
         return true;
+#endif
     
     if (wis->handle) {
         if (wis->scene->unload)
@@ -483,6 +489,10 @@ static const char* ToLower(const char *str, int length) {
     return result;
 }
 
+#if !defined(DEFAULT_TARGET_FPS)
+#define DEFAULT_TARGET_FPS 60.f
+#endif
+
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -584,11 +594,14 @@ static void InitCallback(void) {
     state.timerFrequency = 1000000000L;
 #endif
     
-#define UPDATE_RATE 60.0
     state.updateMultiplicity = 1;
+#if defined(WEE_UNLOCKFRAME_RATE)
     state.unlockFramerate = 1;
-    state.desiredFrameTime = state.timerFrequency * UPDATE_RATE;
-    state.fixedDeltaTime = 1.0 / UPDATE_RATE;
+#else
+    state.unlockFramerate = 0;
+#endif
+    state.desiredFrameTime = state.timerFrequency * DEFAULT_TARGET_FPS;
+    state.fixedDeltaTime = 1.0 / DEFAULT_TARGET_FPS;
     int64_t time60hz = state.timerFrequency / 60;
     state.snapFrequencies[0] = time60hz;
     state.snapFrequencies[1] = time60hz*2;
@@ -642,7 +655,7 @@ static void FrameCallback(void) {
         state.cursorLockedLast = state.cursorLocked;
     }
     
-#if defined(WEE_DEBUG)
+#if !defined(WEE_DISABLE_SCENE_RELOAD)
     if (state.wis)
         assert(ReloadLibrary(state.wis));
 #endif
