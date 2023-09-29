@@ -32,7 +32,7 @@ Nothing to see yet
 - [phoboslab/qoi](https://github.com/phoboslab/qoi) (MIT)
     - qoi.h
 
-## References
+## Acknowledgements
 
 - [raysan5/raylib](https://github.com/raysan5/raylib/)
     - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)

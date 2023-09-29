@@ -26,10 +26,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #define EZ_IMPLEMENTATION
-#include "ezimage.h"
 #include "ezmath.h"
 #include "ezrng.h"
-#include "ezecs.h"
 #include "ezfs.h"
 #include "ezcontainer.h"
 #include "ezstack.h"

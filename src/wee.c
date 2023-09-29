@@ -5,7 +5,6 @@
 //  Created by George Watson on 21/07/2023.
 //
 
-
 #include "wee.h"
 
 static int CompareTextureID(const void *a, const void *b, void *udata) {
@@ -32,7 +31,7 @@ static weeTexture* NewTexture(sg_image_desc *desc) {
     return result;
 }
 
-static weeTexture* CreateEmptyTexture(unsigned int w, unsigned int h) {
+static weeTexture* EmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
@@ -50,31 +49,53 @@ static void DestroyTexture(weeTexture *texture) {
     }
 }
 
-static void UpdateTexture(weeTexture *texture, ezImage *img) {
-    if (texture->w != img->w || texture->h != img->h) {
+#define QOI_MAGIC (((unsigned int)'q') << 24 | ((unsigned int)'o') << 16 | ((unsigned int)'i') <<  8 | ((unsigned int)'f'))
+
+static bool CheckQOI(unsigned char *data) {
+    return (data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]) == QOI_MAGIC;
+}
+
+#define RGBA(R, G, B, A) (((unsigned int)(A) << 24) | ((unsigned int)(R) << 16) | ((unsigned int)(G) << 8) | (B))
+
+static int* LoadImage(unsigned char *data, int sizeOfData, int *w, int *h) {
+    assert(data && sizeOfData);
+    int _w, _h, c;
+    unsigned char *in = NULL;
+    if (CheckQOI(data)) {
+        qoi_desc desc;
+        in = qoi_decode(data, sizeOfData, &desc, 4);
+        _w = desc.width;
+        _h = desc.height;
+    } else
+        in = stbi_load_from_memory(data, sizeOfData, &_w, &_h, &c, 4);
+    assert(in && _w && _h);
+    
+    int *buf = malloc(_w * _h * sizeof(int));
+    for (int x = 0; x < _w; x++)
+        for (int y = 0; y < _h; y++) {
+            unsigned char *p = in + (x + _w * y) * 4;
+            buf[y * _w + x] = RGBA(p[0], p[1], p[2], p[3]);
+        }
+    free(in);
+    if (w)
+        *w = _w;
+    if (h)
+        *h = _h;
+    return buf;
+}
+
+static void UpdateTexture(weeTexture *texture, int *data, int w, int h) {
+    if (texture->w != w || texture->h != h) {
         DestroyTexture(texture);
-        texture = CreateEmptyTexture(img->w, img->h);
+        texture = EmptyTexture(w, h);
     }
-    sg_image_data data = {
+    sg_image_data desc = {
         .subimage[0][0] = (sg_range) {
-            .ptr = img->buf,
-            .size = img->w * img->h * sizeof(int)
+            .ptr = data,
+            .size = w * h * sizeof(int)
         }
     };
-    sg_update_image(texture->internal, &data);
-}
-
-static weeTexture* LoadTextureFromImage(ezImage *img) {
-    weeTexture *result = CreateEmptyTexture(img->w, img->h);
-    UpdateTexture(result, img);
-    return result;
-}
-
-static weeTexture* LoadTextureFromFile(const char *path) {
-    ezImage *img = ezImageLoadFromPath(path);
-    weeTexture *result = LoadTextureFromImage(img);
-    ezImageFree(img);
-    return result;
+    sg_update_image(texture->internal, &desc);
 }
 
 typedef weeVertex Quad[6];
@@ -197,7 +218,6 @@ static void FreeTexture(void *item) {
         DestroyTexture(b->texture);
 }
 
-
 weeState state = {
     .running = false,
     .desc = (sapp_desc) {
@@ -224,17 +244,6 @@ typedef struct {
 } SceneBucket;
 
 #if defined(WEE_WINDOWS)
-static char* RemoveExt(char* path) {
-    char *ret = malloc(strlen(path) + 1);
-    if (!ret)
-        return NULL;
-    strcpy(ret, path);
-    char *ext = strrchr(ret, '.');
-    if (ext)
-        *ext = '\0';
-    return ret;
-}
-
 static FILETIME Win32GetLastWriteTime(char* path) {
     FILETIME time;
     WIN32_FILE_ATTRIBUTE_DATA data;
@@ -311,9 +320,8 @@ BAIL:
     return false;
 }
 
-#if !defined(WEE_STATE)
 // MARK: Config/Argument parsing function
-
+#if !defined(WEE_STATE)
 static void Usage(const char *name) {
     printf("  usage: ./%s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
@@ -436,6 +444,32 @@ static void FreeScene(void *item) {
         b->wis->scene->deinit(&state, b->wis->context);
 }
 
+#define VALID_EXTS_LEN 9
+
+static const char *validImages[VALID_EXTS_LEN] = {
+    "jpg",
+    "png",
+    "tga",
+    "bmp",
+    "psd",
+    "gdr",
+    "pic",
+    "pnm",
+    "qoi"
+};
+
+static const char* ToLower(const char *str, int length) {
+    if (!length)
+        length = (int)strlen(str);
+    assert(length);
+    char *result = malloc(sizeof(char) * length);
+    for (int i = 0; i < length; i++) {
+        char c = str[i];
+        result[i] = isalpha(c) && isupper(c) ? tolower(c) : c;
+    }
+    return result;
+}
+
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -452,15 +486,28 @@ static void InitCallback(void) {
         ezContainerTreeEntry *e = &state.assets->entries[i];
         state.textureMap->compare = CompareTextureName;
         const char *ext = FileExt(e->filePath);
-        if (!strncmp(ext, "png", 3)) {
-            weeTextureBucket search = {.name = FileName(e->filePath)};
-            weeTextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
-            assert(!found);
-            search.texture = LoadTextureFromFile(e->filePath);
-            search.tid = state.textureMap->hash((void*)&search, 0, 0) << 16 >> 16;;
-            search.path = e->filePath;
-            hashmap_set(state.textureMap, (void*)&search);
-        }
+        const char *extLower = ToLower(ext, 0);
+        
+        for (int i = 0; i < VALID_EXTS_LEN; i++)
+            if (!strncmp(validImages[i], extLower, 3)) {
+                weeTextureBucket search = {.name = FileName(e->filePath)};
+                weeTextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
+                assert(!found);
+                unsigned char *data = ezContainerEntryRaw(state.assets, &e->entry);
+                int w, h;
+                int *buf = LoadImage(data, (int)e->entry.fileSize, &w, &h);
+                free(data);
+                search.texture = EmptyTexture(w, h);
+                UpdateTexture(search.texture, buf, w, h);
+                free(buf);
+                search.tid = state.textureMap->hash((void*)&search, 0, 0) << 16 >> 16;
+                search.path = e->filePath;
+                hashmap_set(state.textureMap, (void*)&search);
+            }
+        
+        // TODO: Check other asset types
+        
+        free((void*)extLower);
     }
     
     state.drawCallStack.front = state.drawCallStack.back = NULL;
@@ -548,6 +595,8 @@ static void InitCallback(void) {
 #define DYLIB_EXT ".dll"
 #elif defined(WEE_LINUX)
 #define DYLIB_EXT ".so"
+#else
+#error Unsupported operating system
 #endif
     
 #if !defined(WEE_DYLIB_PATH)
