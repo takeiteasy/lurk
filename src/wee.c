@@ -15,10 +15,6 @@
 #define EZ_IMPLEMENTATION
 #include "wee.h"
 
-#if defined(WEE_RELEASE)
-#define WEE_DISABLE_SCENE_RELOAD
-#endif
-
 static int CompareTextureID(const void *a, const void *b, void *udata) {
     const weeTextureBucket *ua = a;
     const weeTextureBucket *ub = b;
@@ -245,10 +241,6 @@ weeState state = {
 #endif
 
 static weeState *currentState = NULL;
-
-void weeInit(weeState *state) {
-    currentState = state;
-}
 
 typedef struct {
     const char *name;
@@ -489,9 +481,19 @@ static const char* ToLower(const char *str, int length) {
     return result;
 }
 
-#if !defined(DEFAULT_TARGET_FPS)
-#define DEFAULT_TARGET_FPS 60.f
-#endif
+static void weeCreateScene(weeState *state, const char *name, const char *path) {
+    SceneBucket search = {.name = name};
+    SceneBucket *found =  hashmap_get(state->stateMap, (void*)&search);
+    assert(!found);
+    weeInternalScene *wis = malloc(sizeof(weeInternalScene));
+    wis->path = path;
+    wis->context = NULL;
+    wis->scene = NULL;
+    wis->handle = NULL;
+    assert(ReloadLibrary(wis));
+    search.wis = wis;
+    hashmap_set(state->stateMap, (void*)&search);
+}
 
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
@@ -533,7 +535,7 @@ static void InitCallback(void) {
         free((void*)extLower);
     }
     
-    state.drawCallStack.front = state.drawCallStack.back = NULL;
+    state.commandQueue.front = state.commandQueue.back = NULL;
     
     sg_pipeline_desc offscreen_desc = {
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
@@ -617,7 +619,7 @@ static void InitCallback(void) {
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
     
-    weeInit(&state);
+    currentState = &state;
 #if defined(WEE_MAC)
 #define DYLIB_EXT ".dylib"
 #elif defined(WEE_WINDOWS)
@@ -637,6 +639,35 @@ static void InitCallback(void) {
 WEE_SCENES
 #undef X
     weePushScene(&state, WEE_FIRST_SCENE);
+}
+
+static void SingleDrawCall(weeDrawCall *call) {
+    Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
+    if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
+        call->desc.clip.w = size.x;
+        call->desc.clip.h = size.y;
+    }
+    DrawTexture(call->bucket->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
+}
+
+static void BatchDrawCall(weeDrawCall *call) {
+    Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
+    weeDrawCallDesc *cursor = call->desc.head;
+    call->batch->maxVertices = call->desc.back->index * 6;
+    CompileTextureBatch(call->batch);
+    while (cursor) {
+        weeDrawCallDesc *tmp = cursor->next;
+        if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
+            cursor->clip.w = size.x;
+            cursor->clip.h = size.y;
+        }
+        TextureBatchDraw(call->batch, cursor->position, size, cursor->scale, cursor->viewport, cursor->rotation, cursor->clip);
+        free(cursor);
+        cursor = tmp;
+    }
+    FlushTextureBatch(call->batch);
+    DestroyTextureBatch(call->batch);
+    state.drawCallDesc.head = state.drawCallDesc.back = state.drawCallDesc.next = NULL;
 }
 
 static void FrameCallback(void) {
@@ -730,42 +761,20 @@ static void FrameCallback(void) {
     if (state.wis && state.wis->scene->frame)
         state.wis->scene->frame(&state, state.wis->context, render_time);
     
-    ezStackEntry *callEntry = NULL;
-    while ((callEntry = ezStackDrop(&state.drawCallStack))) {
-        weeDrawCall *call = callEntry->data;
-        Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
-        switch (call->type) {
-            case DRAW_CALL_SINGLE:
-                if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
-                    call->desc.clip.w = size.x;
-                    call->desc.clip.h = size.y;
-                }
-                DrawTexture(call->bucket->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
+    ezStackEntry *commandEntry = NULL;
+    while ((commandEntry = ezStackDrop(&state.commandQueue))) {
+        switch (commandEntry->id) {
+            case WEE_DRAW_CALL_SINGLE:
+                SingleDrawCall((weeDrawCall*)commandEntry->data);
                 break;
-            case DRAW_CALL_BATCH: {
-                weeDrawCallDesc *cursor = call->desc.head;
-                call->batch->maxVertices = call->desc.back->index * 6;
-                CompileTextureBatch(call->batch);
-                while (cursor) {
-                    weeDrawCallDesc *tmp = cursor->next;
-                    if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
-                        cursor->clip.w = size.x;
-                        cursor->clip.h = size.y;
-                    }
-                    TextureBatchDraw(call->batch, cursor->position, size, cursor->scale, cursor->viewport, cursor->rotation, cursor->clip);
-                    free(cursor);
-                    cursor = tmp;
-                }
-                FlushTextureBatch(call->batch);
-                DestroyTextureBatch(call->batch);
-                state.drawCallDesc.head = state.drawCallDesc.back = state.drawCallDesc.next = NULL;
+            case WEE_DRAW_CALL_BATCH:
+                BatchDrawCall((weeDrawCall*)commandEntry->data);
                 break;
-            }
             default:
                 assert(0);
         }
-        free(call);
-        free(callEntry);
+        free(commandEntry->data);
+        free(commandEntry);
     }
     
     sg_end_pass();
@@ -838,20 +847,6 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 }
 #endif
 
-void weeCreateScene(weeState *state, const char *name, const char *path) {
-    SceneBucket search = {.name = name};
-    SceneBucket *found =  hashmap_get(state->stateMap, (void*)&search);
-    assert(!found);
-    weeInternalScene *wis = malloc(sizeof(weeInternalScene));
-    wis->path = path;
-    wis->context = NULL;
-    wis->scene = NULL;
-    wis->handle = NULL;
-    assert(ReloadLibrary(wis));
-    search.wis = wis;
-    hashmap_set(state->stateMap, (void*)&search);
-}
-
 void weePushScene(weeState *state, const char *name) {
     SceneBucket search = {.name = name};
     SceneBucket *found = hashmap_get(state->stateMap, (void*)&search);
@@ -869,10 +864,13 @@ void weePushScene(weeState *state, const char *name) {
 }
 
 void weePopScene(weeState *state) {
-    assert(state->wis);
-    if (state->wis->scene->unload)
-        state->wis->scene->unload(state, state->wis->context);
-    state->wis = state->wis->next;
+    if (state)
+        sapp_quit();
+    else {
+        if (state->wis->scene->unload)
+            state->wis->scene->unload(state, state->wis->context);
+        state->wis = state->wis->next;
+    }
 }
 
 void weeDestroyScene(weeState *state, const char *name) {
@@ -944,9 +942,8 @@ void weeDrawTexture(weeState *state) {
     assert(tid && state->currentTextureBucket);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
     call->bucket = state->currentTextureBucket;
-    call->type = DRAW_CALL_SINGLE;
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
-    ezStackAppend(&state->drawCallStack, 0, (void*)call);
+    ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_SINGLE, (void*)call);
 }
 
 void weeBeginBatch(weeState *state) {
@@ -977,9 +974,8 @@ void weeEndBatch(weeState *state) {
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
     call->bucket = state->currentTextureBucket;
     call->batch = state->currentBatch;
-    call->type = DRAW_CALL_BATCH;
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
-    ezStackAppend(&state->drawCallStack, 0, (void*)call);
+    ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_BATCH, (void*)call);
     state->currentBatch = NULL;
 }
 

@@ -6,7 +6,6 @@ struct weeeeeeeeeeeeeeeeeee {
 };
 
 static weeeeeeeeeeeeeeee* init(weeState* state) {
-    weeInit(state);
     printf("Initializing menu scene...\n");
     weeee *result = malloc(sizeof(struct weeeeeeeeeee));
     result->test_a = weeFindTexture(state, "test.png");

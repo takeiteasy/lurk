@@ -199,6 +199,18 @@ typedef enum bool {
 #define DEFAULT_WINDOW_TITLE "weeeeeeeeeeeeeeee"
 #endif
 
+#if !defined(MAX_TEXTURE_STACK)
+#define MAX_TEXTURE_STACK 8
+#endif
+
+#if defined(WEE_RELEASE)
+#define WEE_DISABLE_SCENE_RELOAD
+#endif
+
+#if !defined(DEFAULT_TARGET_FPS)
+#define DEFAULT_TARGET_FPS 60.f
+#endif
+
 #define SETTINGS                                                                                 \
     X("width", integer, width, DEFAULT_WINDOW_WIDTH, "Set window width")                         \
     X("height", integer, height, DEFAULT_WINDOW_HEIGHT, "Set window height")                     \
@@ -256,6 +268,11 @@ typedef struct TextureBucket {
     weeTexture *texture;
 } weeTextureBucket;
 
+typedef enum weeCommandType {
+    WEE_DRAW_CALL_SINGLE,
+    WEE_DRAW_CALL_BATCH
+} weeCommandType;
+
 typedef enum weeDrawCallType {
     DRAW_CALL_SINGLE,
     DRAW_CALL_BATCH
@@ -275,19 +292,14 @@ typedef struct weeDrawCall {
     weeTextureBucket *bucket;
     weeDrawCallDesc desc;
     weeTextureBatch *batch;
-    weeDrawCallType type;
 } weeDrawCall;
-
-#if !defined(MAX_TEXTURE_STACK)
-#define MAX_TEXTURE_STACK 8
-#endif
 
 typedef struct weeState {
     weeInternalScene *wis;
     struct hashmap *stateMap;
     struct hashmap *textureMap;
     ezContainer *assets;
-    ezStack drawCallStack;
+    ezStack commandQueue;
     weeDrawCallDesc drawCallDesc;
     weeTextureBatch *currentBatch;
     weeTextureBucket *currentTextureBucket;
@@ -333,7 +345,6 @@ struct weeScene {
 };
 
 EXPORT void weeInit(weeState *state);
-EXPORT void weeCreateScene(weeState *state, const char *name, const char *path);
 EXPORT void weePushScene(weeState *state, const char *name);
 EXPORT void weePopScene(weeState *state);
 EXPORT void weeDestroyScene(weeState *state, const char *name);
