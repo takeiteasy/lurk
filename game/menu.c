@@ -32,6 +32,7 @@ static void event(weeState* state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_ev
 static void frame(weeState* state, weeeeeeeeeeeeeee *scene, float delta) {
     printf("hello from menu?\n");
     weeSetPosition(state, 0.f, 0.f);
+    
     weePushTexture(state, scene->test_a);
     weeBeginBatch(state);
     for (int i = 0; i < 10; i++) {

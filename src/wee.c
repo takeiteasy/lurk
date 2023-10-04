@@ -13,19 +13,8 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define EZ_IMPLEMENTATION
+#define IMAP_IMPLEMENTATION
 #include "wee.h"
-
-static int CompareTextureID(const void *a, const void *b, void *udata) {
-    const weeTextureBucket *ua = a;
-    const weeTextureBucket *ub = b;
-    return ua->tid == ub->tid ? 0 : 1;
-}
-
-static int CompareTextureName(const void *a, const void *b, void *udata) {
-    const weeTextureBucket *ua = a;
-    const weeTextureBucket *ub = b;
-    return strcmp(ua->name, ub->name);
-}
 
 #if !defined(WEE_STATE)
 #include "framebuffer.glsl.h"
@@ -215,17 +204,6 @@ static void FlushTextureBatch(weeTextureBatch *batch) {
     batch->vertexCount = 0;
 }
 
-static uint64_t HashTexture(const void *item, uint64_t seed0, uint64_t seed1) {
-    const weeTextureBucket *b = item;
-    return b->name ? hashmap_sip(b->name, strlen(b->name), seed0, seed1) : b->tid;
-}
-
-static void FreeTexture(void *item) {
-    weeTextureBucket *b = item;
-    if (b)
-        DestroyTexture(b->texture);
-}
-
 weeState state = {
     .running = false,
     .desc = (sapp_desc) {
@@ -238,9 +216,102 @@ weeState state = {
         .colors[0] = {.action=SG_ACTION_CLEAR, .value={0.39f, 0.58f, 0.92f, 1.f}}
     }
 };
-#endif
 
 static weeState *currentState = NULL;
+#endif
+
+//-----------------------------------------------------------------------------
+// MurmurHash3 was written by Austin Appleby, and is placed in the public
+// domain. The author hereby disclaims copyright to this source code.
+//
+// Murmur3_86_128
+//-----------------------------------------------------------------------------
+static void MM86128(const void *key, const int len, uint32_t seed, void *out) {
+#define ROTL32(x, r) ((x << r) | (x >> (32 - r)))
+#define FMIX32(h) h^=h>>16; h*=0x85ebca6b; h^=h>>13; h*=0xc2b2ae35; h^=h>>16;
+    const uint8_t * data = (const uint8_t*)key;
+    const int nblocks = len / 16;
+    uint32_t h1 = seed;
+    uint32_t h2 = seed;
+    uint32_t h3 = seed;
+    uint32_t h4 = seed;
+    uint32_t c1 = 0x239b961b;
+    uint32_t c2 = 0xab0e9789;
+    uint32_t c3 = 0x38b34ae5;
+    uint32_t c4 = 0xa1e38b93;
+    const uint32_t * blocks = (const uint32_t *)(data + nblocks*16);
+    for (int i = -nblocks; i; i++) {
+        uint32_t k1 = blocks[i*4+0];
+        uint32_t k2 = blocks[i*4+1];
+        uint32_t k3 = blocks[i*4+2];
+        uint32_t k4 = blocks[i*4+3];
+        k1 *= c1; k1  = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
+        h1 = ROTL32(h1,19); h1 += h2; h1 = h1*5+0x561ccd1b;
+        k2 *= c2; k2  = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
+        h2 = ROTL32(h2,17); h2 += h3; h2 = h2*5+0x0bcaa747;
+        k3 *= c3; k3  = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
+        h3 = ROTL32(h3,15); h3 += h4; h3 = h3*5+0x96cd1c35;
+        k4 *= c4; k4  = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
+        h4 = ROTL32(h4,13); h4 += h1; h4 = h4*5+0x32ac3b17;
+    }
+    const uint8_t * tail = (const uint8_t*)(data + nblocks*16);
+    uint32_t k1 = 0;
+    uint32_t k2 = 0;
+    uint32_t k3 = 0;
+    uint32_t k4 = 0;
+    switch(len & 15) {
+        case 15:
+            k4 ^= tail[14] << 16;
+        case 14:
+            k4 ^= tail[13] << 8;
+        case 13:
+            k4 ^= tail[12] << 0;
+            k4 *= c4; k4  = ROTL32(k4,18); k4 *= c1; h4 ^= k4;
+        case 12:
+            k3 ^= tail[11] << 24;
+        case 11:
+            k3 ^= tail[10] << 16;
+        case 10:
+            k3 ^= tail[ 9] << 8;
+        case 9:
+            k3 ^= tail[ 8] << 0;
+            k3 *= c3; k3  = ROTL32(k3,17); k3 *= c4; h3 ^= k3;
+        case 8:
+            k2 ^= tail[ 7] << 24;
+        case 7:
+            k2 ^= tail[ 6] << 16;
+        case 6:
+            k2 ^= tail[ 5] << 8;
+        case 5:
+            k2 ^= tail[ 4] << 0;
+            k2 *= c2; k2  = ROTL32(k2,16); k2 *= c3; h2 ^= k2;
+        case 4:
+            k1 ^= tail[ 3] << 24;
+        case 3:
+            k1 ^= tail[ 2] << 16;
+        case 2:
+            k1 ^= tail[ 1] << 8;
+        case 1:
+            k1 ^= tail[ 0] << 0;
+            k1 *= c1; k1  = ROTL32(k1,15); k1 *= c2; h1 ^= k1;
+    };
+    h1 ^= len; h2 ^= len; h3 ^= len; h4 ^= len;
+    h1 += h2; h1 += h3; h1 += h4;
+    h2 += h1; h3 += h1; h4 += h1;
+    FMIX32(h1); FMIX32(h2); FMIX32(h3); FMIX32(h4);
+    h1 += h2; h1 += h3; h1 += h4;
+    h2 += h1; h3 += h1; h4 += h1;
+    ((uint32_t*)out)[0] = h1;
+    ((uint32_t*)out)[1] = h2;
+    ((uint32_t*)out)[2] = h3;
+    ((uint32_t*)out)[3] = h4;
+}
+
+static uint64_t murmur(const void *data, uint32_t len, uint32_t seed) {
+    char out[16];
+    MM86128(data, (int)len, seed, &out);
+    return *(uint64_t*)out;
+}
 
 typedef struct {
     const char *name;
@@ -259,6 +330,7 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 }
 #endif
 
+#if !defined(WEE_STATE)
 static bool ShouldReloadLibrary(weeInternalScene *wis) {
 #if defined(WEE_WINDOWS)
     FILETIME newTime = Win32GetLastWriteTime(Args.path);
@@ -326,10 +398,8 @@ BAIL:
     return false;
 }
 
-// MARK: Config/Argument parsing function
-#if !defined(WEE_STATE)
 static void Usage(const char *name) {
-    printf("  usage: ./%s [options]\n\n  options:\n", name);
+    printf("  usage: %s [options]\n\n  options:\n", name);
     printf("\t  help (flag) -- Show this message\n");
     printf("\t  config (string) -- Path to .json config file\n");
 #define X(NAME, TYPE, VAL, DEFAULT, DOCS) \
@@ -438,25 +508,7 @@ static int ParseArguments(int argc, char *argv[]) {
 
 // MARK: Program loop
 
-static int CompareScene(const void *a, const void *b, void *udata) {
-    const SceneBucket *ua = a;
-    const SceneBucket *ub = b;
-    return strcmp(ua->name, ub->name);
-}
-
-static uint64_t HashScene(const void *item, uint64_t seed0, uint64_t seed1) {
-    const SceneBucket *b = item;
-    return hashmap_sip(b->name, strlen(b->name), seed0, seed1);
-}
-
-static void FreeScene(void *item) {
-    SceneBucket *b = item;
-    if (b->wis->scene->deinit)
-        b->wis->scene->deinit(&state, b->wis->context);
-}
-
 #define VALID_EXTS_LEN 9
-
 static const char *validImages[VALID_EXTS_LEN] = {
     "jpg",
     "png",
@@ -481,20 +533,6 @@ static const char* ToLower(const char *str, int length) {
     return result;
 }
 
-static void weeCreateScene(weeState *state, const char *name, const char *path) {
-    SceneBucket search = {.name = name};
-    SceneBucket *found =  hashmap_get(state->stateMap, (void*)&search);
-    assert(!found);
-    weeInternalScene *wis = malloc(sizeof(weeInternalScene));
-    wis->path = path;
-    wis->context = NULL;
-    wis->scene = NULL;
-    wis->handle = NULL;
-    assert(ReloadLibrary(wis));
-    search.wis = wis;
-    hashmap_set(state->stateMap, (void*)&search);
-}
-
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -503,31 +541,32 @@ static void InitCallback(void) {
     sg_setup(&desc);
     stm_setup();
     
-    state.stateMap = hashmap_new(sizeof(SceneBucket), 0, 0, 0, HashScene, CompareScene, FreeScene, NULL);
-    state.textureMap = hashmap_new(sizeof(weeTextureBucket), 0, 0, 0, HashTexture, NULL, FreeTexture, NULL);
-   
+    state.textureMapCapacity = 1;
+    state.textureMapCount = 0;
+    state.textureMap = imap_ensure(NULL, 1);
     state.assets = ezContainerRead(WEE_ASSETS_PATH);
     for (int i = 0; i < state.assets->sizeOfEntries; i++) {
         ezContainerTreeEntry *e = &state.assets->entries[i];
-        state.textureMap->compare = CompareTextureName;
         const char *ext = FileExt(e->filePath);
         const char *extLower = ToLower(ext, 0);
         
         for (int i = 0; i < VALID_EXTS_LEN; i++)
             if (!strncmp(validImages[i], extLower, 3)) {
-                weeTextureBucket search = {.name = FileName(e->filePath)};
-                weeTextureBucket *found = hashmap_get(state.textureMap, (void*)&search);
-                assert(!found);
+                if (++state.textureMapCount > state.textureMapCapacity) {
+                    state.textureMapCapacity += state.textureMapCapacity;
+                    state.textureMap = imap_ensure(state.textureMap, state.textureMapCapacity);
+                }
+                const char *fname = FileName(e->filePath);
+                uint64_t hash = murmur((void*)fname, (uint32_t)strlen(fname), 0);
+                imap_slot_t *slot = imap_assign(state.textureMap, hash);
                 unsigned char *data = ezContainerEntryRaw(state.assets, &e->entry);
                 int w, h;
                 int *buf = LoadImage(data, (int)e->entry.fileSize, &w, &h);
                 free(data);
-                search.texture = EmptyTexture(w, h);
-                UpdateTexture(search.texture, buf, w, h);
+                weeTexture *texture = EmptyTexture(w, h);
+                UpdateTexture(texture, buf, w, h);
                 free(buf);
-                search.tid = state.textureMap->hash((void*)&search, 0, 0) << 16 >> 16;
-                search.path = e->filePath;
-                hashmap_set(state.textureMap, (void*)&search);
+                imap_setval64(state.textureMap, slot, (uint64_t)texture);
             }
         
         // TODO: Check other asset types
@@ -634,24 +673,39 @@ static void InitCallback(void) {
 #define WEE_DYLIB_PATH ResolvePath("./");
 #endif
     
-#define X(NAME) \
-    weeCreateScene(&state, NAME, WEE_DYLIB_PATH NAME DYLIB_EXT);
+    int sceneCount = 0;
+#define X(NAME) sceneCount++;
+WEE_SCENES
+#undef X
+    state.sceneMap = imap_ensure(NULL, sceneCount);
+#define X(NAME)                                                             \
+    do {                                                                    \
+        uint64_t hash = murmur((void*)(NAME), (uint32_t)strlen((NAME)), 0); \
+        imap_slot_t *slot = imap_assign(state.sceneMap, hash);              \
+        weeInternalScene *wis = malloc(sizeof(weeInternalScene));           \
+        wis->path = WEE_DYLIB_PATH NAME DYLIB_EXT;                          \
+        wis->context = NULL;                                                \
+        wis->scene = NULL;                                                  \
+        wis->handle = NULL;                                                 \
+        assert(ReloadLibrary(wis));                                         \
+        imap_setval64(state.sceneMap, slot, (uint64_t)wis);                 \
+    } while (0);
 WEE_SCENES
 #undef X
     weePushScene(&state, WEE_FIRST_SCENE);
 }
 
 static void SingleDrawCall(weeDrawCall *call) {
-    Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
+    Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
     if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
         call->desc.clip.w = size.x;
         call->desc.clip.h = size.y;
     }
-    DrawTexture(call->bucket->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
+    DrawTexture(call->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
 }
 
 static void BatchDrawCall(weeDrawCall *call) {
-    Vec2f size = Vec2New((float)call->bucket->texture->w, (float)call->bucket->texture->h);
+    Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
     weeDrawCallDesc *cursor = call->desc.head;
     call->batch->maxVertices = call->desc.back->index * 6;
     CompileTextureBatch(call->batch);
@@ -687,12 +741,12 @@ static void FrameCallback(void) {
     }
     
 #if !defined(WEE_DISABLE_SCENE_RELOAD)
-    if (state.wis)
-        assert(ReloadLibrary(state.wis));
+    if (state.currentScene)
+        assert(ReloadLibrary(state.currentScene));
 #endif
     
-    if (state.wis && state.wis->scene->preframe)
-        state.wis->scene->preframe(&state, state.wis->context);
+    if (state.currentScene && state.currentScene->scene->preframe)
+        state.currentScene->scene->preframe(&state, state.currentScene->context);
     
     int64_t current_frame_time = stm_now();
     int64_t delta_time = current_frame_time - state.prevFrameTime;
@@ -731,35 +785,33 @@ static void FrameCallback(void) {
         int64_t consumedDeltaTime = delta_time;
         
         while (state.frameAccumulator >= state.desiredFrameTime) {
-            if (state.wis && state.wis->scene->fixedupdate)
-                state.wis->scene->fixedupdate(&state, state.wis->context, state.fixedDeltaTime);
+            if (state.currentScene && state.currentScene->scene->fixedupdate)
+                state.currentScene->scene->fixedupdate(&state, state.currentScene->context, state.fixedDeltaTime);
             if (consumedDeltaTime > state.desiredFrameTime) {
-                if (state.wis && state.wis->scene->update)
-                    state.wis->scene->update(&state, state.wis->context, state.fixedDeltaTime);
+                if (state.currentScene && state.currentScene->scene->update)
+                    state.currentScene->scene->update(&state, state.currentScene->context, state.fixedDeltaTime);
                 consumedDeltaTime -= state.desiredFrameTime;
             }
             state.frameAccumulator -= state.desiredFrameTime;
         }
         
-        if (state.wis && state.wis->scene->update)
-            state.wis->scene->update(&state, state.wis->context, (double)consumedDeltaTime / state.timerFrequency);
+        if (state.currentScene && state.currentScene->scene->update)
+            state.currentScene->scene->update(&state, state.currentScene->context, (double)consumedDeltaTime / state.timerFrequency);
         render_time = (double)state.frameAccumulator / state.desiredFrameTime;
-    } else {
-        while (state.frameAccumulator >= state.desiredFrameTime*state.updateMultiplicity) {
+    } else
+        while (state.frameAccumulator >= state.desiredFrameTime*state.updateMultiplicity)
             for (int i = 0; i < state.updateMultiplicity; ++i) {
-                if (state.wis && state.wis->scene->fixedupdate)
-                    state.wis->scene->fixedupdate(&state, state.wis->context, state.fixedDeltaTime);
-                if (state.wis && state.wis->scene->update)
-                    state.wis->scene->update(&state, state.wis->context, state.fixedDeltaTime);
+                if (state.currentScene && state.currentScene->scene->fixedupdate)
+                    state.currentScene->scene->fixedupdate(&state, state.currentScene->context, state.fixedDeltaTime);
+                if (state.currentScene && state.currentScene->scene->update)
+                    state.currentScene->scene->update(&state, state.currentScene->context, state.fixedDeltaTime);
                 state.frameAccumulator -= state.desiredFrameTime;
             }
-        }
-    }
     
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     sg_apply_pipeline(state.pip);
-    if (state.wis && state.wis->scene->frame)
-        state.wis->scene->frame(&state, state.wis->context, render_time);
+    if (state.currentScene && state.currentScene->scene->frame)
+        state.currentScene->scene->frame(&state, state.currentScene->context, render_time);
     
     ezStackEntry *commandEntry = NULL;
     while ((commandEntry = ezStackDrop(&state.commandQueue))) {
@@ -780,8 +832,8 @@ static void FrameCallback(void) {
     sg_end_pass();
     sg_commit();
     
-    if (state.wis && state.wis->scene->postframe)
-        state.wis->scene->postframe(&state, state.wis->context);
+    if (state.currentScene && state.currentScene->scene->postframe)
+        state.currentScene->scene->postframe(&state, state.currentScene->context);
 }
 
 static void EventCallback(const sapp_event* e) {
@@ -793,16 +845,22 @@ static void EventCallback(const sapp_event* e) {
         default:
             break;
     }
-    if (state.wis && state.wis->scene->event)
-        state.wis->scene->event(&state, state.wis->context, e);
+    if (state.currentScene && state.currentScene->scene->event)
+        state.currentScene->scene->event(&state, state.currentScene->context, e);
 }
 
 static void CleanupCallback(void) {
     state.running = false;
     sg_destroy_pipeline(state.pip);
     ezContainerFree(state.assets);
-#define X(NAME) \
-    weeDestroyScene(&state, NAME);
+#define X(NAME)                                                                         \
+    do {                                                                                \
+        uint64_t hash = murmur((void*)(NAME), (uint32_t)strlen((NAME)), 0);             \
+        imap_slot_t *slot = imap_lookup(state.sceneMap, hash);                          \
+        assert(slot);                                                                   \
+        weeInternalScene *wis = (weeInternalScene*)imap_getval64(state.sceneMap, slot); \
+        free(wis);                                                                      \
+    } while (0);
 WEE_SCENES
 #undef X
     sg_shutdown();
@@ -848,36 +906,30 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 #endif
 
 void weePushScene(weeState *state, const char *name) {
-    SceneBucket search = {.name = name};
-    SceneBucket *found = hashmap_get(state->stateMap, (void*)&search);
-    assert(found);
+    uint64_t hash = murmur((void*)name, (uint32_t)strlen(name), 0);
+    imap_slot_t *slot = imap_lookup(state->sceneMap, hash);
+    assert(slot);
+    weeInternalScene *wis = (weeInternalScene*)imap_getval64(state->sceneMap, slot);
     bool reload = false;
-    if (state->wis) {
-        found->wis->next = state->wis;
-        if (state->wis->scene->unload)
-            state->wis->scene->unload(state, state->wis->context);
+    if (state->currentScene) {
+        wis->next = state->currentScene;
+        if (state->currentScene->scene->unload)
+            state->currentScene->scene->unload(state, state->currentScene->context);
         reload = true;
     }
-    state->wis = found->wis;
-    if (reload && state->wis->scene->reload)
-        state->wis->scene->reload(state, state->wis->context);
+    state->currentScene = wis;
+    if (reload && state->currentScene->scene->reload)
+        state->currentScene->scene->reload(state, state->currentScene->context);
 }
 
 void weePopScene(weeState *state) {
     if (state)
         sapp_quit();
     else {
-        if (state->wis->scene->unload)
-            state->wis->scene->unload(state, state->wis->context);
-        state->wis = state->wis->next;
+        if (state->currentScene->scene->unload)
+            state->currentScene->scene->unload(state, state->currentScene->context);
+        state->currentScene = state->currentScene->next;
     }
-}
-
-void weeDestroyScene(weeState *state, const char *name) {
-    SceneBucket search = {.name = name};
-    SceneBucket *found = NULL;
-    if ((found = hashmap_get(state->stateMap, (void*)&search)))
-        hashmap_delete(state->stateMap, (void*)found);
 }
 
 int weeWindowWidth(weeState *state) {
@@ -913,21 +965,17 @@ void weeToggleCursorLock(weeState *state) {
 }
 
 uint64_t weeFindTexture(weeState *state, const char *name) {
-    weeTextureBucket search = {.name = name};
-    state->textureMap->compare = CompareTextureName;
-    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    return found ? found->tid : 0;
+    uint64_t hash = murmur((void*)name, (uint32_t)strlen(name), 0);
+    return imap_lookup(state->textureMap, hash) ? hash : -1L;
 }
 
 void weePushTexture(weeState *state, uint64_t tid) {
     assert(state->textureStackCount < MAX_TEXTURE_STACK);
     assert(tid);
-    weeTextureBucket search = {.tid=tid};
-    state->textureMap->compare = CompareTextureID;
-    weeTextureBucket *found = hashmap_get(state->textureMap, (void*)&search);
-    assert(found);
+    imap_slot_t *slot = imap_lookup(state->textureMap, tid);
+    assert(slot);
     state->textureStack[state->textureStackCount++] = tid;
-    state->currentTextureBucket = found;
+    state->currentTexture = (weeTexture*)imap_getval64(state->textureMap, slot);
 }
 
 uint64_t weePopTexture(weeState *state) {
@@ -939,9 +987,9 @@ uint64_t weePopTexture(weeState *state) {
 
 void weeDrawTexture(weeState *state) {
     uint64_t tid = state->textureStack[state->textureStackCount-1];
-    assert(tid && state->currentTextureBucket);
+    assert(tid && state->currentTexture);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
-    call->bucket = state->currentTextureBucket;
+    call->texture = state->currentTexture;
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
     ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_SINGLE, (void*)call);
 }
@@ -949,8 +997,8 @@ void weeDrawTexture(weeState *state) {
 void weeBeginBatch(weeState *state) {
     assert(!state->currentBatch);
     uint64_t tid = state->textureStack[state->textureStackCount-1];
-    assert(tid && state->currentTextureBucket);
-    state->currentBatch = EmptyTextureBatch(state->currentTextureBucket->texture);
+    assert(tid && state->currentTexture);
+    state->currentBatch = EmptyTextureBatch(state->currentTexture);
 }
 
 void weeDrawTextureBatch(weeState *state) {
@@ -972,7 +1020,7 @@ void weeDrawTextureBatch(weeState *state) {
 void weeEndBatch(weeState *state) {
     assert(state->currentBatch);
     weeDrawCall *call = malloc(sizeof(weeDrawCall));
-    call->bucket = state->currentTextureBucket;
+    call->texture = state->currentTexture;
     call->batch = state->currentBatch;
     memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
     ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_BATCH, (void*)call);

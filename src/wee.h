@@ -165,7 +165,8 @@ typedef enum bool {
 #endif
 #include "jim.h"
 #include "mjson.h"
-#include "hashmap.h"
+#define IMAP_INTERFACE
+#include "imap.h"
 #include "qoi.h"
 #define STB_NO_GIF
 #include "stb_image.h"
@@ -262,21 +263,10 @@ typedef struct weeInternalScene {
     struct weeInternalScene *next;
 } weeInternalScene;
 
-typedef struct TextureBucket {
-    uint64_t tid;
-    const char *name, *path;
-    weeTexture *texture;
-} weeTextureBucket;
-
 typedef enum weeCommandType {
     WEE_DRAW_CALL_SINGLE,
     WEE_DRAW_CALL_BATCH
 } weeCommandType;
-
-typedef enum weeDrawCallType {
-    DRAW_CALL_SINGLE,
-    DRAW_CALL_BATCH
-} weeDrawCallType;
 
 typedef struct weeDrawCallDesc {
     int index;
@@ -289,20 +279,22 @@ typedef struct weeDrawCallDesc {
 } weeDrawCallDesc;
 
 typedef struct weeDrawCall {
-    weeTextureBucket *bucket;
+    weeTexture *texture;
     weeDrawCallDesc desc;
     weeTextureBatch *batch;
 } weeDrawCall;
 
 typedef struct weeState {
-    weeInternalScene *wis;
-    struct hashmap *stateMap;
-    struct hashmap *textureMap;
+    weeInternalScene *currentScene;
+    imap_node_t *sceneMap;
+    imap_node_t *textureMap;
+    int textureMapCapacity;
+    int textureMapCount;
     ezContainer *assets;
     ezStack commandQueue;
     weeDrawCallDesc drawCallDesc;
     weeTextureBatch *currentBatch;
-    weeTextureBucket *currentTextureBucket;
+    weeTexture *currentTexture;
     uint64_t textureStack[MAX_TEXTURE_STACK];
     int textureStackCount;
 
@@ -344,10 +336,8 @@ struct weeScene {
     void (*postframe)(weeState*, weeee*);
 };
 
-EXPORT void weeInit(weeState *state);
 EXPORT void weePushScene(weeState *state, const char *name);
 EXPORT void weePopScene(weeState *state);
-EXPORT void weeDestroyScene(weeState *state, const char *name);
 
 EXPORT int weeWindowWidth(weeState *state);
 EXPORT int weeWindowHeight(weeState *state);
@@ -359,6 +349,7 @@ EXPORT int weeIsCursorLocked(weeState *state);
 EXPORT void weeToggleCursorLock(weeState *state);
 
 EXPORT uint64_t weeFindTexture(weeState *state, const char *name);
+EXPORT uint64_t weeCreateTexture(weeState *state, int w, int h);
 EXPORT void weePushTexture(weeState *state, uint64_t tid);
 EXPORT uint64_t weePopTexture(weeState *state);
 EXPORT void weeDrawTexture(weeState *state);

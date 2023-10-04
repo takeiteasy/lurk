@@ -19,8 +19,8 @@ _Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
     - jim.h
 - [win32ports/dirent_h](https://github.com/win32ports/dirent_h/) (MIT)
     - dirent_win32.h
-- [tidwall/hashmap.c](https://github.com/tidwall/hashmap.c) (MIT)
-    - hashmap.h
+- [billziss-gh/imap](https://github.com/billziss-gh/imap) (MIT)
+    - imap.h
 - [nothings/stb](https://github.com/nothings/stb) (MIT/Public Domain)
     - stb_image.h
     - stb_image_write.h
