@@ -30,8 +30,7 @@ static void event(weeState* state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_ev
 }
 
 static void frame(weeState* state, weeeeeeeeeeeeeee *scene, float delta) {
-    printf("hello from menu?\n");
-    weeSetPosition(state, 0.f, 0.f);
+    weeClear(state);
     
     weePushTexture(state, scene->test_a);
     weeBeginBatch(state);
@@ -42,6 +41,7 @@ static void frame(weeState* state, weeeeeeeeeeeeeee *scene, float delta) {
     weeEndBatch(state);
     weePopTexture(state);
     
+    weeClear(state);
     weeSetPosition(state, 100.f, 100.f);
     weePushTexture(state, scene->test_b);
     weeDrawTexture(state);

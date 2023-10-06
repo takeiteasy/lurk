@@ -158,7 +158,6 @@ typedef enum bool {
 #undef SOKOL_IMPL
 #include "sokol_args.h"
 #include "sokol_time.h"
-#define SOKOL_IMPL
 #else
 #include "sokol_args.h"
 #include "sokol_time.h"
@@ -268,21 +267,21 @@ typedef enum weeCommandType {
     WEE_DRAW_CALL_BATCH
 } weeCommandType;
 
-typedef struct weeDrawCallDesc {
+typedef struct weeDrawCall {
     int index;
     Vec2f position;
     Vec2f viewport;
     Vec2f scale;
     weeRect clip;
     float rotation;
-    struct weeDrawCallDesc *head, *back, *next;
-} weeDrawCallDesc;
-
-typedef struct weeDrawCall {
-    weeTexture *texture;
-    weeDrawCallDesc desc;
-    weeTextureBatch *batch;
+    struct weeDrawCall *head, *back, *next;
 } weeDrawCall;
+
+typedef struct weeInternalDrawCall {
+    weeTexture *texture;
+    weeDrawCall desc;
+    weeTextureBatch *batch;
+} weeInternalDrawCall;
 
 typedef struct weeState {
     weeInternalScene *currentScene;
@@ -292,7 +291,7 @@ typedef struct weeState {
     int textureMapCount;
     ezContainer *assets;
     ezStack commandQueue;
-    weeDrawCallDesc drawCallDesc;
+    weeDrawCall currentDrawCall;
     weeTextureBatch *currentBatch;
     weeTexture *currentTexture;
     uint64_t textureStack[MAX_TEXTURE_STACK];
@@ -364,7 +363,7 @@ EXPORT void weeScaleBy(weeState *state, float dx, float dy);
 EXPORT void weeSetClip(weeState *state, float x, float y, float w, float h);
 EXPORT void weeSetRotation(weeState *state, float angle);
 EXPORT void weeRotateBy(weeState *state, float angle);
-EXPORT void weeReset(weeState *state);
+EXPORT void weeClear(weeState *state);
 
 extern weeState state;
 

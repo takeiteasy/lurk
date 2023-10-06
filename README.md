@@ -5,7 +5,7 @@ _Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
 > [!WARNING]
 > Work in progress
 
-## Dependencies
+## Acknowledgements
 
 - [floooh/sokol](https://github.com/floooh/sokol) (zlib/libpng)
     - sokol_gfx.h
@@ -26,9 +26,9 @@ _Wee_ 2D game framework built with [sokol](https://github.com/floooh/sokol).
     - stb_image_write.h
 - [phoboslab/qoi](https://github.com/phoboslab/qoi) (MIT)
     - qoi.h
-
-## Acknowledgements
-
+- [dlfcn-win32/dlfcn-win32](https://github.com/dlfcn-win32/dlfcn-win32) (MIT)
+    - dlfcn_win32.h
+    - dlfcn_win32.c
 - [raysan5/raylib](https://github.com/raysan5/raylib/)
     - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)
 - [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)

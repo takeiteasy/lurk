@@ -223,8 +223,6 @@ static weeState *currentState = NULL;
 //-----------------------------------------------------------------------------
 // MurmurHash3 was written by Austin Appleby, and is placed in the public
 // domain. The author hereby disclaims copyright to this source code.
-//
-// Murmur3_86_128
 //-----------------------------------------------------------------------------
 static void MM86128(const void *key, const int len, uint32_t seed, void *out) {
 #define ROTL32(x, r) ((x << r) | (x >> (32 - r)))
@@ -307,9 +305,9 @@ static void MM86128(const void *key, const int len, uint32_t seed, void *out) {
     ((uint32_t*)out)[3] = h4;
 }
 
-static uint64_t murmur(const void *data, uint32_t len, uint32_t seed) {
+static uint64_t MurmurHash(const void *data, size_t len, uint32_t seed) {
     char out[16];
-    MM86128(data, (int)len, seed, &out);
+    MM86128(data, (int)len, (uint32_t)seed, &out);
     return *(uint64_t*)out;
 }
 
@@ -557,7 +555,7 @@ static void InitCallback(void) {
                     state.textureMap = imap_ensure(state.textureMap, state.textureMapCapacity);
                 }
                 const char *fname = FileName(e->filePath);
-                uint64_t hash = murmur((void*)fname, (uint32_t)strlen(fname), 0);
+                uint64_t hash = MurmurHash((void*)fname, strlen(fname), 0);
                 imap_slot_t *slot = imap_assign(state.textureMap, hash);
                 unsigned char *data = ezContainerEntryRaw(state.assets, &e->entry);
                 int w, h;
@@ -573,8 +571,6 @@ static void InitCallback(void) {
         
         free((void*)extLower);
     }
-    
-    state.commandQueue.front = state.commandQueue.back = NULL;
     
     sg_pipeline_desc offscreen_desc = {
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
@@ -609,7 +605,7 @@ static void InitCallback(void) {
     
     state.windowWidth = sapp_width();
     state.windowHeight = sapp_height();
-    state.drawCallDesc = (weeDrawCallDesc) {
+    state.currentDrawCall = (weeDrawCall) {
         .position = Vec2Zero(),
         .viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight),
         .scale = Vec2New(1.f, 1.f),
@@ -617,6 +613,14 @@ static void InitCallback(void) {
         .rotation = 0.f
     };
     
+    state.currentDrawCall.index = 0;
+    state.currentDrawCall.position = Vec2Zero();
+    state.currentDrawCall.scale = Vec2New(1.f, 1.f);
+    state.currentDrawCall.clip = (weeRect){0.f, 0.f, 0.f, 0.f};
+    state.currentDrawCall.rotation = 0.f;
+    state.currentDrawCall.viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight);
+    state.currentDrawCall.head = state.currentDrawCall.back = state.currentDrawCall.next = NULL;
+    state.commandQueue.front = state.commandQueue.back = NULL;
     memset(&state.textureStack, 0, MAX_TEXTURE_STACK * sizeof(uint64_t));
     state.textureStackCount = 0;
     
@@ -678,24 +682,24 @@ static void InitCallback(void) {
 WEE_SCENES
 #undef X
     state.sceneMap = imap_ensure(NULL, sceneCount);
-#define X(NAME)                                                             \
-    do {                                                                    \
-        uint64_t hash = murmur((void*)(NAME), (uint32_t)strlen((NAME)), 0); \
-        imap_slot_t *slot = imap_assign(state.sceneMap, hash);              \
-        weeInternalScene *wis = malloc(sizeof(weeInternalScene));           \
-        wis->path = WEE_DYLIB_PATH NAME DYLIB_EXT;                          \
-        wis->context = NULL;                                                \
-        wis->scene = NULL;                                                  \
-        wis->handle = NULL;                                                 \
-        assert(ReloadLibrary(wis));                                         \
-        imap_setval64(state.sceneMap, slot, (uint64_t)wis);                 \
+#define X(NAME)                                                       \
+    do {                                                              \
+        uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0); \
+        imap_slot_t *slot = imap_assign(state.sceneMap, hash);        \
+        weeInternalScene *wis = malloc(sizeof(weeInternalScene));     \
+        wis->path = WEE_DYLIB_PATH NAME DYLIB_EXT;                    \
+        wis->context = NULL;                                          \
+        wis->scene = NULL;                                            \
+        wis->handle = NULL;                                           \
+        assert(ReloadLibrary(wis));                                   \
+        imap_setval64(state.sceneMap, slot, (uint64_t)wis);           \
     } while (0);
 WEE_SCENES
 #undef X
     weePushScene(&state, WEE_FIRST_SCENE);
 }
 
-static void SingleDrawCall(weeDrawCall *call) {
+static void SingleDrawCall(weeInternalDrawCall *call) {
     Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
     if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
         call->desc.clip.w = size.x;
@@ -704,13 +708,13 @@ static void SingleDrawCall(weeDrawCall *call) {
     DrawTexture(call->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
 }
 
-static void BatchDrawCall(weeDrawCall *call) {
+static void BatchDrawCall(weeInternalDrawCall *call) {
     Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
-    weeDrawCallDesc *cursor = call->desc.head;
+    weeDrawCall *cursor = call->desc.head;
     call->batch->maxVertices = call->desc.back->index * 6;
     CompileTextureBatch(call->batch);
     while (cursor) {
-        weeDrawCallDesc *tmp = cursor->next;
+        weeDrawCall *tmp = cursor->next;
         if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
             cursor->clip.w = size.x;
             cursor->clip.h = size.y;
@@ -721,7 +725,7 @@ static void BatchDrawCall(weeDrawCall *call) {
     }
     FlushTextureBatch(call->batch);
     DestroyTextureBatch(call->batch);
-    state.drawCallDesc.head = state.drawCallDesc.back = state.drawCallDesc.next = NULL;
+    state.currentDrawCall.head = state.currentDrawCall.back = state.currentDrawCall.next = NULL;
 }
 
 static void FrameCallback(void) {
@@ -817,10 +821,10 @@ static void FrameCallback(void) {
     while ((commandEntry = ezStackDrop(&state.commandQueue))) {
         switch (commandEntry->id) {
             case WEE_DRAW_CALL_SINGLE:
-                SingleDrawCall((weeDrawCall*)commandEntry->data);
+                SingleDrawCall((weeInternalDrawCall*)commandEntry->data);
                 break;
             case WEE_DRAW_CALL_BATCH:
-                BatchDrawCall((weeDrawCall*)commandEntry->data);
+                BatchDrawCall((weeInternalDrawCall*)commandEntry->data);
                 break;
             default:
                 assert(0);
@@ -855,7 +859,7 @@ static void CleanupCallback(void) {
     ezContainerFree(state.assets);
 #define X(NAME)                                                                         \
     do {                                                                                \
-        uint64_t hash = murmur((void*)(NAME), (uint32_t)strlen((NAME)), 0);             \
+        uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0);                   \
         imap_slot_t *slot = imap_lookup(state.sceneMap, hash);                          \
         assert(slot);                                                                   \
         weeInternalScene *wis = (weeInternalScene*)imap_getval64(state.sceneMap, slot); \
@@ -906,7 +910,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 #endif
 
 void weePushScene(weeState *state, const char *name) {
-    uint64_t hash = murmur((void*)name, (uint32_t)strlen(name), 0);
+    uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
     imap_slot_t *slot = imap_lookup(state->sceneMap, hash);
     assert(slot);
     weeInternalScene *wis = (weeInternalScene*)imap_getval64(state->sceneMap, slot);
@@ -965,7 +969,7 @@ void weeToggleCursorLock(weeState *state) {
 }
 
 uint64_t weeFindTexture(weeState *state, const char *name) {
-    uint64_t hash = murmur((void*)name, (uint32_t)strlen(name), 0);
+    uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
     return imap_lookup(state->textureMap, hash) ? hash : -1L;
 }
 
@@ -988,9 +992,9 @@ uint64_t weePopTexture(weeState *state) {
 void weeDrawTexture(weeState *state) {
     uint64_t tid = state->textureStack[state->textureStackCount-1];
     assert(tid && state->currentTexture);
-    weeDrawCall *call = malloc(sizeof(weeDrawCall));
+    weeInternalDrawCall *call = malloc(sizeof(weeInternalDrawCall));
     call->texture = state->currentTexture;
-    memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
+    memcpy(&call->desc, &state->currentDrawCall, sizeof(weeDrawCall));
     ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_SINGLE, (void*)call);
 }
 
@@ -1003,59 +1007,64 @@ void weeBeginBatch(weeState *state) {
 
 void weeDrawTextureBatch(weeState *state) {
     assert(state->currentBatch);
-    weeDrawCallDesc *node = malloc(sizeof(weeDrawCallDesc));
+    weeDrawCall *node = malloc(sizeof(weeDrawCall));
     node->next =  NULL;
-    memcpy(node, &state->drawCallDesc, sizeof(weeDrawCallDesc));
+    memcpy(node, &state->currentDrawCall, sizeof(weeDrawCall));
     
-    if (!state->drawCallDesc.head) {
+    if (!state->currentDrawCall.head) {
         node->index = 1;
-        state->drawCallDesc.head = state->drawCallDesc.back = node;
+        state->currentDrawCall.head = state->currentDrawCall.back = node;
     } else {
-        node->index = state->drawCallDesc.back->index + 1;
-        state->drawCallDesc.back->next = node;
-        state->drawCallDesc.back = node;
+        node->index = state->currentDrawCall.back->index + 1;
+        state->currentDrawCall.back->next = node;
+        state->currentDrawCall.back = node;
     }
 }
 
 void weeEndBatch(weeState *state) {
     assert(state->currentBatch);
-    weeDrawCall *call = malloc(sizeof(weeDrawCall));
+    weeInternalDrawCall *call = malloc(sizeof(weeInternalDrawCall));
     call->texture = state->currentTexture;
     call->batch = state->currentBatch;
-    memcpy(&call->desc, &state->drawCallDesc, sizeof(weeDrawCallDesc));
+    memcpy(&call->desc, &state->currentDrawCall, sizeof(weeDrawCall));
     ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_BATCH, (void*)call);
     state->currentBatch = NULL;
 }
 
 void weeSetPosition(weeState *state, float x, float y) {
-    state->drawCallDesc.position = Vec2New(x, y);
+    state->currentDrawCall.position = Vec2New(x, y);
 }
 
 void weePositionMoveBy(weeState *state, float dx, float dy) {
-    state->drawCallDesc.position += Vec2New(dx, dy);
+    state->currentDrawCall.position += Vec2New(dx, dy);
 }
 
 void weeSetScale(weeState *state, float x, float y) {
-    state->drawCallDesc.scale = Vec2New(x, y);
+    state->currentDrawCall.scale = Vec2New(x, y);
 }
 
 void weeScaleBy(weeState *state, float dx, float dy) {
-    state->drawCallDesc.scale += Vec2New(dx, dy);
+    state->currentDrawCall.scale += Vec2New(dx, dy);
 }
 
 void weeSetClip(weeState *state, float x, float y, float w, float h) {
-    state->drawCallDesc.clip = (weeRect){x, y, w, h};
+    state->currentDrawCall.clip = (weeRect){x, y, w, h};
 }
 
 void weeSetRotation(weeState *state, float angle) {
-    state->drawCallDesc.rotation = angle;
+    state->currentDrawCall.rotation = angle;
 }
 
 void weeRotateBy(weeState *state, float angle) {
-    state->drawCallDesc.rotation += angle;
+    state->currentDrawCall.rotation += angle;
 }
 
-void weeReset(weeState *state) {
-    memset(&state->drawCallDesc, 0, sizeof(weeDrawCallDesc));
-    state->drawCallDesc.viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight);
+void weeClear(weeState *state) {
+    state->currentDrawCall.index = 0;
+    state->currentDrawCall.position = Vec2Zero();
+    state->currentDrawCall.scale = Vec2New(1.f, 1.f);
+    state->currentDrawCall.clip = (weeRect){0.f, 0.f, 0.f, 0.f};
+    state->currentDrawCall.rotation = 0.f;
+    state->currentDrawCall.viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight);
+    state->currentDrawCall.head = state->currentDrawCall.back = state->currentDrawCall.next = NULL;
 }
