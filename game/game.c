@@ -1,36 +1,36 @@
-#include "wee.h"
+#include "gamekit.h"
 
-struct weeeeeeeeeeeeeeeeeee {
+struct GameKit {
     int test;
 };
 
-static weeeeeeeeeeeeeeee* init(weeState *state) {
+static GameKit* init(gkState *state) {
     printf("Initializing game scene...\n");
-    weeee *result = malloc(sizeof(struct weeeeeeeeeee));
+    GameKit *result = malloc(sizeof(struct GameKit));
     return result;
 }
 
-static void deinit(weeState *state, weeeeeeeeeeeeeee *scene) {
+static void deinit(gkState *state, GameKit *scene) {
     printf("Deinitializing game scene\n");
 }
 
-static void reload(weeState *state, weeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee *scene) {
+static void reload(gkState *state, GameKit *scene) {
     printf("Game scene reloaded\n");
 }
 
-static void unload(weeState *state, weeeeeeee *scene) {
+static void unload(gkState *state, GameKit *scene) {
     printf("Game scene unloaded\n");
 }
 
-static void event(weeState *state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_event *e) {
+static void event(gkState *state, GameKit *scene, const sapp_event *e) {
     
 }
 
-static void frame(weeState *state, weeeeeeeeeeeeeee *scene, float delta) {
+static void frame(gkState *state, GameKit *scene, float delta) {
     printf("hello from game!\n");
 }
 
-EXPORT const weeScene scene = {
+EXPORT const gkScene scene = {
     .init = init,
     .deinit = deinit,
     .reload = reload,

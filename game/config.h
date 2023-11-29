@@ -1,10 +1,10 @@
-#define WEE_ENABLE_ARGUMENTS
-#define WEE_ENABLE_CONFIG
-#define WEE_CONFIG_PATH ".test.json"
-#define WEE_DYLIB_PATH "build/"
-#define WEE_FIRST_SCENE "menu"
-#define WEE_ASSETS_PATH "game/assets.ezc"
+#define GAMEKIT_ENABLE_ARGUMENTS
+#define GAMEKIT_ENABLE_CONFIG
+#define GAMEKIT_CONFIG_PATH ".test.json"
+#define GAMEKIT_DYLIB_PATH "build/"
+#define GAMEKIT_FIRST_SCENE "menu"
+#define GAMEKIT_ASSETS_PATH "game/assets.ezc"
 
-#define WEE_SCENES \
+#define GAMEKIT_SCENES \
     X("menu")      \
     X("game")

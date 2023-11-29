@@ -1,54 +1,54 @@
-#include "wee.h"
+#include "gamekit.h"
 
-struct weeeeeeeeeeeeeeeeeee {
+struct GameKit {
     uint64_t test_a;
     uint64_t test_b;
 };
 
-static weeeeeeeeeeeeeeee* init(weeState* state) {
+static GameKit* init(gkState* state) {
     printf("Initializing menu scene...\n");
-    weeee *result = malloc(sizeof(struct weeeeeeeeeee));
-    result->test_a = weeFindTexture(state, "test.png");
-    result->test_b = weeFindTexture(state, "test2.png");
+    GameKit *result = malloc(sizeof(struct GameKit));
+    result->test_a = gkFindTexture(state, "test.png");
+    result->test_b = gkFindTexture(state, "test2.png");
     return result;
 }
 
-static void deinit(weeState* state, weeeeeeeeeeeeeee *scene) {
+static void deinit(gkState* state, GameKit *scene) {
     printf("Deinitializing Menu scene\n");
 }
 
-static void reload(weeState* state, weeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee *scene) {
+static void reload(gkState* state, GameKit *scene) {
     printf("Menu scene reloaded\n");
 }
 
-static void unload(weeState* state, weeeeeeee *scene) {
+static void unload(gkState* state, GameKit *scene) {
     printf("Menu scene unloaded\n");
 }
 
-static void event(weeState* state, weeeeeeeeeeeeeeeeeeeeee *scene, const sapp_event *e) {
+static void event(gkState* state, GameKit *scene, const sapp_event *e) {
     
 }
 
-static void frame(weeState* state, weeeeeeeeeeeeeee *scene, float delta) {
-    weeClear(state);
+static void frame(gkState* state, GameKit *scene, float delta) {
+    gkClear(state);
     
-    weePushTexture(state, scene->test_a);
-    weeBeginBatch(state);
+    gkPushTexture(state, scene->test_a);
+    gkBeginBatch(state);
     for (int i = 0; i < 10; i++) {
-        weePositionMoveBy(state, 5.f, 5.f);
-        weeDrawTextureBatch(state);
+        gkPositionMoveBy(state, 5.f, 5.f);
+        gkDrawTextureBatch(state);
     }
-    weeEndBatch(state);
-    weePopTexture(state);
+    gkEndBatch(state);
+    gkPopTexture(state);
     
-    weeClear(state);
-    weeSetPosition(state, 100.f, 100.f);
-    weePushTexture(state, scene->test_b);
-    weeDrawTexture(state);
-    weePopTexture(state);
+    gkClear(state);
+    gkSetPosition(state, 100.f, 100.f);
+    gkPushTexture(state, scene->test_b);
+    gkDrawTexture(state);
+    gkPopTexture(state);
 }
 
-EXPORT const weeScene scene = {
+EXPORT const gkScene scene = {
     .init = init,
     .deinit = deinit,
     .reload = reload,

@@ -1,4 +1,4 @@
-name: wee
+name: gamekit
 
 options:
   bundleIdPrefix: io.github.takeiteasy
@@ -13,7 +13,7 @@ settings:
   CLANG_WARN_DOCUMENTATION_COMMENTS: false
 
 targets:
-  wee:
+  gamekit:
     type: tool
     platform: macOS
     sources:
@@ -36,7 +36,7 @@ targets:
         - sdk: MetalKit.framework
         - sdk: Quartz.framework
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/ez, $(PROJECT_DIR)/build, $(PROJECT_DIR)/game]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]
   menu:
     type: library.dynamic
@@ -46,7 +46,7 @@ targets:
         - path: src/
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]
   game:
     type: library.dynamic
     platform: macOS
@@ -55,4 +55,4 @@ targets:
         - path: src/
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DWEE_STATE]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]

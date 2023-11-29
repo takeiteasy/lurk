@@ -27,7 +27,7 @@ else
 	endif
 endif
 
-INCLUDE=-Ibuild -Ideps -Ideps/ez -Igame -Isrc
+INCLUDE=-Ibuild -Ideps -Iez -Igame -Isrc
 SOURCES=$(wildcard src/*.c)
 ARCH_PATH=./tools/$(ARCH)
 
@@ -52,7 +52,7 @@ SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,build/%.$(LIB_EXT), $(SCENES))
 SCENE=$(patsubst build/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
 SCENE_OUT=$@
 %.$(LIB_EXT): $(SCENES)
-	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DWEE_STATE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
+	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DGAMEKIT_STATE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
 
 scenes: $(SCENES_OUT)
 
@@ -62,10 +62,10 @@ game/assets.ezc:
 assets: game/assets.ezc
 
 debug:
-	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/gamekit_$(ARCH)$(PROG_EXT)
 
 release:
-		$(CC) $(INCLUDE) -DWEE_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/wee_$(ARCH)$(PROG_EXT)
+		$(CC) $(INCLUDE) -DGAMEKIT_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/gamekit_$(ARCH)$(PROG_EXT)
 
 clean:
 	rm -rf build/ || yes

@@ -1,9 +1,23 @@
-//
-//  wee.c
-//  wee
-//
-//  Created by George Watson on 21/07/2023.
-//
+/* gamekit.c -- https://github.com/takeiteasy/c-gamekit
+
+ The MIT License (MIT)
+ Copyright (c) 2022 George Watson
+ Permission is hereby granted, free of charge, to any person
+ obtaining a copy of this software and associated documentation
+ files (the "Software"), to deal in the Software without restriction,
+ including without limitation the rights to use, copy, modify, merge,
+ publish, distribute, sublicense, and/or sell copies of the Software,
+ and to permit persons to whom the Software is furnished to do so,
+ subject to the following conditions:
+ The above copyright notice and this permission notice shall be
+ included in all copies or substantial portions of the Software.
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #define SOKOL_IMPL
 #define JIM_IMPLEMENTATION
@@ -14,21 +28,21 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define EZ_IMPLEMENTATION
 #define IMAP_IMPLEMENTATION
-#include "wee.h"
+#include "gamekit.h"
 
-#if !defined(WEE_STATE)
+#if !defined(GAMEKIT_STATE)
 #include "framebuffer.glsl.h"
 #include "texture.glsl.h"
 
-static weeTexture* NewTexture(sg_image_desc *desc) {
-    weeTexture *result = malloc(sizeof(weeTexture));
+static gkTexture* NewTexture(sg_image_desc *desc) {
+    gkTexture *result = malloc(sizeof(gkTexture));
     result->internal = sg_make_image(desc);
     result->w = desc->width;
     result->h = desc->height;
     return result;
 }
 
-static weeTexture* EmptyTexture(unsigned int w, unsigned int h) {
+static gkTexture* EmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
@@ -38,7 +52,7 @@ static weeTexture* EmptyTexture(unsigned int w, unsigned int h) {
     return NewTexture(&desc);
 }
 
-static void DestroyTexture(weeTexture *texture) {
+static void DestroyTexture(gkTexture *texture) {
     if (texture) {
         if (sg_query_image_state(texture->internal) == SG_RESOURCESTATE_VALID)
             sg_destroy_image(texture->internal);
@@ -81,7 +95,7 @@ static int* LoadImage(unsigned char *data, int sizeOfData, int *w, int *h) {
     return buf;
 }
 
-static void UpdateTexture(weeTexture *texture, int *data, int w, int h) {
+static void UpdateTexture(gkTexture *texture, int *data, int w, int h) {
     if (texture->w != w || texture->h != h) {
         DestroyTexture(texture);
         texture = EmptyTexture(w, h);
@@ -95,9 +109,9 @@ static void UpdateTexture(weeTexture *texture, int *data, int w, int h) {
     sg_update_image(texture->internal, &desc);
 }
 
-typedef weeVertex Quad[6];
+typedef gkVertex Quad[6];
 
-static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip, Quad *out) {
+static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip, Quad *out) {
     Vec2f quad[4] = {
         {position.x, position.y + size.y}, // bottom left
         {position.x + size.x, position.y + size.y}, // bottom right
@@ -129,14 +143,14 @@ static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f sc
     };
     
     for (int i = 0; i < 6; i++)
-        (*out)[i] = (weeVertex) {
+        (*out)[i] = (gkVertex) {
             .position = quad[indices[i]],
             .texcoord = vtexquad[indices[i]],
             .color = {1.f, 1.f, 1.f, 1.f}
         };
 }
 
-static void DrawTexture(weeTexture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip) {
+static void DrawTexture(gkTexture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip) {
     Quad quad;
     Vec2f textureSize = {texture->w, texture->h};
     if (clip.w < 0 && clip.h < 0) {
@@ -157,27 +171,27 @@ static void DrawTexture(weeTexture *texture, Vec2f position, Vec2f size, Vec2f s
 }
 #endif
 
-static weeTextureBatch* EmptyTextureBatch(weeTexture *texture) {
-    weeTextureBatch *result = malloc(sizeof(weeTextureBatch));
-    memset(result, 0, sizeof(weeTextureBatch));
+static gkTextureBatch* EmptyTextureBatch(gkTexture *texture) {
+    gkTextureBatch *result = malloc(sizeof(gkTextureBatch));
+    memset(result, 0, sizeof(gkTextureBatch));
     result->size = (Vec2f){texture->w, texture->h};
     result->texture = texture;
     return result;
 }
 
-#if !defined(WEE_STATE)
-static void CompileTextureBatch(weeTextureBatch *batch) {
-    batch->vertices = malloc(batch->maxVertices * sizeof(weeVertex));
+#if !defined(GAMEKIT_STATE)
+static void CompileTextureBatch(gkTextureBatch *batch) {
+    batch->vertices = malloc(batch->maxVertices * sizeof(gkVertex));
     sg_buffer_desc desc = {
         .usage = SG_USAGE_STREAM,
-        .size = batch->maxVertices * sizeof(weeVertex)
+        .size = batch->maxVertices * sizeof(gkVertex)
     };
     batch->bind = (sg_bindings) {
         .vertex_buffers[0] = sg_make_buffer(&desc),
         .fs_images[SLOT_tex] = batch->texture->internal
     };
 }
-static void DestroyTextureBatch(weeTextureBatch *batch) {
+static void DestroyTextureBatch(gkTextureBatch *batch) {
     if (batch) {
         if (batch->vertices)
             free(batch->vertices);
@@ -187,24 +201,24 @@ static void DestroyTextureBatch(weeTextureBatch *batch) {
     }
 }
 
-static void TextureBatchDraw(weeTextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, weeRect clip) {
+static void TextureBatchDraw(gkTextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip) {
     GenerateQuad(position, batch->size, size, scale, viewportSize, rotation, clip, (Quad*)(batch->vertices + batch->vertexCount));
     batch->vertexCount += 6;
 }
 
-static void FlushTextureBatch(weeTextureBatch *batch) {
+static void FlushTextureBatch(gkTextureBatch *batch) {
     sg_range range = {
         .ptr = batch->vertices,
-        .size = batch->vertexCount * sizeof(weeVertex)
+        .size = batch->vertexCount * sizeof(gkVertex)
     };
     sg_update_buffer(batch->bind.vertex_buffers[0], &range);
     sg_apply_bindings(&batch->bind);
     sg_draw(0, batch->vertexCount, 1);
-    memset(batch->vertices, 0, batch->maxVertices * sizeof(weeVertex));
+    memset(batch->vertices, 0, batch->maxVertices * sizeof(gkVertex));
     batch->vertexCount = 0;
 }
 
-weeState state = {
+gkState state = {
     .running = false,
     .desc = (sapp_desc) {
 #define X(NAME, TYPE, VAL, DEFAULT, DOCS) .VAL = DEFAULT,
@@ -217,7 +231,7 @@ weeState state = {
     }
 };
 
-static weeState *currentState = NULL;
+static gkState *currentState = NULL;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -313,10 +327,10 @@ static uint64_t MurmurHash(const void *data, size_t len, uint32_t seed) {
 
 typedef struct {
     const char *name;
-    weeInternalScene *wis;
+    gkInternalScene *wis;
 } SceneBucket;
 
-#if defined(WEE_WINDOWS)
+#if defined(GAMEKIT_WINDOWS)
 static FILETIME Win32GetLastWriteTime(char* path) {
     FILETIME time;
     WIN32_FILE_ATTRIBUTE_DATA data;
@@ -328,9 +342,9 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 }
 #endif
 
-#if !defined(WEE_STATE)
-static bool ShouldReloadLibrary(weeInternalScene *wis) {
-#if defined(WEE_WINDOWS)
+#if !defined(GAMEKIT_STATE)
+static bool ShouldReloadLibrary(gkInternalScene *wis) {
+#if defined(GAMEKIT_WINDOWS)
     FILETIME newTime = Win32GetLastWriteTime(Args.path);
     bool result = CompareFileTime(&newTime, &wis->writeTime);
     if (result)
@@ -345,8 +359,8 @@ static bool ShouldReloadLibrary(weeInternalScene *wis) {
 #endif
 }
 
-static bool ReloadLibrary(weeInternalScene *wis) {
-#if !defined(WEE_DISABLE_SCENE_RELOAD)
+static bool ReloadLibrary(gkInternalScene *wis) {
+#if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
     assert(wis);
     if (!ShouldReloadLibrary(wis))
         return true;
@@ -358,7 +372,7 @@ static bool ReloadLibrary(weeInternalScene *wis) {
         dlclose(wis->handle);
     }
     
-#if defined(WEE_WINDOWS)
+#if defined(GAMEKIT_WINDOWS)
     size_t newPathSize = strlen(wis->path) + 4;
     char *newPath = malloc(sizeof(char) * newPathSize);
     char *noExt = RemoveExt(wis->path);
@@ -388,7 +402,7 @@ BAIL:
     if (wis->handle)
         dlclose(wis->handle);
     wis->handle = NULL;
-#if defined(WEE_WINDOWS)
+#if defined(GAMEKIT_WINDOWS)
     memset(&writeTime, 0, sizeof(FILETIME));
 #else
     wis->handleID = 0;
@@ -449,7 +463,7 @@ static int ExportConfig(const char *path) {
 static int ParseArguments(int argc, char *argv[]) {
     const char *name = argv[0];
     sargs_desc desc = (sargs_desc) {
-#if defined WEE_EMSCRIPTEN
+#if defined GAMEKIT_EMSCRIPTEN
         .argc = argc,
         .argv = (char**)argv
 #else
@@ -459,7 +473,7 @@ static int ParseArguments(int argc, char *argv[]) {
     };
     sargs_setup(&desc);
     
-#if !defined(WEE_EMSCRIPTEN)
+#if !defined(GAMEKIT_EMSCRIPTEN)
     if (sargs_exists("help")) {
         Usage(name);
         return 0;
@@ -478,7 +492,7 @@ static int ParseArguments(int argc, char *argv[]) {
         }
         LoadConfig(path);
     }
-#endif // WEE_EMSCRIPTEN
+#endif // GAMEKIT_EMSCRIPTEN
     
 #define boolean 1
 #define integer 0
@@ -542,7 +556,7 @@ static void InitCallback(void) {
     state.textureMapCapacity = 1;
     state.textureMapCount = 0;
     state.textureMap = imap_ensure(NULL, 1);
-    state.assets = ezContainerRead(WEE_ASSETS_PATH);
+    state.assets = ezContainerRead(GAMEKIT_ASSETS_PATH);
     for (int i = 0; i < state.assets->sizeOfEntries; i++) {
         ezContainerTreeEntry *e = &state.assets->entries[i];
         const char *ext = FileExt(e->filePath);
@@ -561,7 +575,7 @@ static void InitCallback(void) {
                 int w, h;
                 int *buf = LoadImage(data, (int)e->entry.fileSize, &w, &h);
                 free(data);
-                weeTexture *texture = EmptyTexture(w, h);
+                gkTexture *texture = EmptyTexture(w, h);
                 UpdateTexture(texture, buf, w, h);
                 free(buf);
                 imap_setval64(state.textureMap, slot, (uint64_t)texture);
@@ -576,7 +590,7 @@ static void InitCallback(void) {
         .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
         .shader = sg_make_shader(texture_program_shader_desc(sg_query_backend())),
         .layout = {
-            .buffers[0].stride = sizeof(weeVertex),
+            .buffers[0].stride = sizeof(gkVertex),
             .attrs = {
                 [ATTR_texture_vs_position].format=SG_VERTEXFORMAT_FLOAT2,
                 [ATTR_texture_vs_texcoord].format=SG_VERTEXFORMAT_FLOAT2,
@@ -605,18 +619,18 @@ static void InitCallback(void) {
     
     state.windowWidth = sapp_width();
     state.windowHeight = sapp_height();
-    state.currentDrawCall = (weeDrawCall) {
+    state.currentDrawCall = (gkDrawCall) {
         .position = Vec2Zero(),
         .viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight),
         .scale = Vec2New(1.f, 1.f),
-        .clip = (weeRect){0.f, 0.f, 0.f, 0.f},
+        .clip = (gkRect){0.f, 0.f, 0.f, 0.f},
         .rotation = 0.f
     };
     
     state.currentDrawCall.index = 0;
     state.currentDrawCall.position = Vec2Zero();
     state.currentDrawCall.scale = Vec2New(1.f, 1.f);
-    state.currentDrawCall.clip = (weeRect){0.f, 0.f, 0.f, 0.f};
+    state.currentDrawCall.clip = (gkRect){0.f, 0.f, 0.f, 0.f};
     state.currentDrawCall.rotation = 0.f;
     state.currentDrawCall.viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight);
     state.currentDrawCall.head = state.currentDrawCall.back = state.currentDrawCall.next = NULL;
@@ -624,13 +638,13 @@ static void InitCallback(void) {
     memset(&state.textureStack, 0, MAX_TEXTURE_STACK * sizeof(uint64_t));
     state.textureStackCount = 0;
     
-#if defined(WEE_MAC)
+#if defined(GAMEKIT_MAC)
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
     uint64_t frequency = info.denom;
     frequency *= 1000000000L;
     state.timerFrequency = frequency / info.numer;
-#elif defined(WEE_WINDOW)
+#elif defined(GAMEKIT_WINDOW)
     LARGE_INTEGER frequency;
     if (!QueryPerformanceFrequency(&frequency))
         return 1000L;
@@ -640,7 +654,7 @@ static void InitCallback(void) {
 #endif
     
     state.updateMultiplicity = 1;
-#if defined(WEE_UNLOCKFRAME_RATE)
+#if defined(GAMEKIT_UNLOCKFRAME_RATE)
     state.unlockFramerate = 1;
 #else
     state.unlockFramerate = 0;
@@ -663,43 +677,43 @@ static void InitCallback(void) {
     state.frameAccumulator = 0;
     
     currentState = &state;
-#if defined(WEE_MAC)
+#if defined(GAMEKIT_MAC)
 #define DYLIB_EXT ".dylib"
-#elif defined(WEE_WINDOWS)
+#elif defined(GAMEKIT_WINDOWS)
 #define DYLIB_EXT ".dll"
-#elif defined(WEE_LINUX)
+#elif defined(GAMEKIT_LINUX)
 #define DYLIB_EXT ".so"
 #else
 #error Unsupported operating system
 #endif
     
-#if !defined(WEE_DYLIB_PATH)
-#define WEE_DYLIB_PATH ResolvePath("./");
+#if !defined(GAMEKIT_DYLIB_PATH)
+#define GAMEKIT_DYLIB_PATH ResolvePath("./");
 #endif
     
     int sceneCount = 0;
 #define X(NAME) sceneCount++;
-WEE_SCENES
+GAMEKIT_SCENES
 #undef X
     state.sceneMap = imap_ensure(NULL, sceneCount);
 #define X(NAME)                                                       \
     do {                                                              \
         uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0); \
         imap_slot_t *slot = imap_assign(state.sceneMap, hash);        \
-        weeInternalScene *wis = malloc(sizeof(weeInternalScene));     \
-        wis->path = WEE_DYLIB_PATH NAME DYLIB_EXT;                    \
+        gkInternalScene *wis = malloc(sizeof(gkInternalScene));     \
+        wis->path = GAMEKIT_DYLIB_PATH NAME DYLIB_EXT;                    \
         wis->context = NULL;                                          \
         wis->scene = NULL;                                            \
         wis->handle = NULL;                                           \
         assert(ReloadLibrary(wis));                                   \
         imap_setval64(state.sceneMap, slot, (uint64_t)wis);           \
     } while (0);
-WEE_SCENES
+GAMEKIT_SCENES
 #undef X
-    weePushScene(&state, WEE_FIRST_SCENE);
+    gkPushScene(&state, GAMEKIT_FIRST_SCENE);
 }
 
-static void SingleDrawCall(weeInternalDrawCall *call) {
+static void SingleDrawCall(gkInternalDrawCall *call) {
     Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
     if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
         call->desc.clip.w = size.x;
@@ -708,13 +722,13 @@ static void SingleDrawCall(weeInternalDrawCall *call) {
     DrawTexture(call->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
 }
 
-static void BatchDrawCall(weeInternalDrawCall *call) {
+static void BatchDrawCall(gkInternalDrawCall *call) {
     Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
-    weeDrawCall *cursor = call->desc.head;
+    gkDrawCall *cursor = call->desc.head;
     call->batch->maxVertices = call->desc.back->index * 6;
     CompileTextureBatch(call->batch);
     while (cursor) {
-        weeDrawCall *tmp = cursor->next;
+        gkDrawCall *tmp = cursor->next;
         if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
             cursor->clip.w = size.x;
             cursor->clip.h = size.y;
@@ -744,7 +758,7 @@ static void FrameCallback(void) {
         state.cursorLockedLast = state.cursorLocked;
     }
     
-#if !defined(WEE_DISABLE_SCENE_RELOAD)
+#if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
     if (state.currentScene)
         assert(ReloadLibrary(state.currentScene));
 #endif
@@ -820,11 +834,11 @@ static void FrameCallback(void) {
     ezStackEntry *commandEntry = NULL;
     while ((commandEntry = ezStackDrop(&state.commandQueue))) {
         switch (commandEntry->id) {
-            case WEE_DRAW_CALL_SINGLE:
-                SingleDrawCall((weeInternalDrawCall*)commandEntry->data);
+            case GAMEKIT_DRAW_CALL_SINGLE:
+                SingleDrawCall((gkInternalDrawCall*)commandEntry->data);
                 break;
-            case WEE_DRAW_CALL_BATCH:
-                BatchDrawCall((weeInternalDrawCall*)commandEntry->data);
+            case GAMEKIT_DRAW_CALL_BATCH:
+                BatchDrawCall((gkInternalDrawCall*)commandEntry->data);
                 break;
             default:
                 assert(0);
@@ -862,20 +876,20 @@ static void CleanupCallback(void) {
         uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0);                   \
         imap_slot_t *slot = imap_lookup(state.sceneMap, hash);                          \
         assert(slot);                                                                   \
-        weeInternalScene *wis = (weeInternalScene*)imap_getval64(state.sceneMap, slot); \
+        gkInternalScene *wis = (gkInternalScene*)imap_getval64(state.sceneMap, slot); \
         free(wis);                                                                      \
     } while (0);
-WEE_SCENES
+GAMEKIT_SCENES
 #undef X
     sg_shutdown();
 }
 
 sapp_desc sokol_main(int argc, char* argv[]) {
-#if defined(WEE_ENABLE_CONFIG)
-#if !defined(WEE_CONFIG_PATH)
+#if defined(GAMEKIT_ENABLE_CONFIG)
+#if !defined(GAMEKIT_CONFIG_PATH)
     const char *configPath = JoinPath(UserPath(), DEFAULT_CONFIG_NAME);
 #else
-    const char *configPath = ResolvePath(WEE_CONFIG_PATH);
+    const char *configPath = ResolvePath(GAMEKIT_CONFIG_PATH);
 #endif
     
     if (DoesFileExist(configPath)) {
@@ -893,7 +907,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
         }
     }
 #endif
-#if defined(WEE_ENABLE_ARGUMENTS)
+#if defined(GAMEKIT_ENABLE_ARGUMENTS)
     if (argc > 1)
         if (!ParseArguments(argc, argv)) {
             fprintf(stderr, "[PARSE ARGUMENTS ERROR] Failed to parse arguments\n");
@@ -909,11 +923,11 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 }
 #endif
 
-void weePushScene(weeState *state, const char *name) {
+void gkPushScene(gkState *state, const char *name) {
     uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
     imap_slot_t *slot = imap_lookup(state->sceneMap, hash);
     assert(slot);
-    weeInternalScene *wis = (weeInternalScene*)imap_getval64(state->sceneMap, slot);
+    gkInternalScene *wis = (gkInternalScene*)imap_getval64(state->sceneMap, slot);
     bool reload = false;
     if (state->currentScene) {
         wis->next = state->currentScene;
@@ -926,7 +940,7 @@ void weePushScene(weeState *state, const char *name) {
         state->currentScene->scene->reload(state, state->currentScene->context);
 }
 
-void weePopScene(weeState *state) {
+void gkPopScene(gkState *state) {
     if (state)
         sapp_quit();
     else {
@@ -936,80 +950,80 @@ void weePopScene(weeState *state) {
     }
 }
 
-int weeWindowWidth(weeState *state) {
+int gkWindowWidth(gkState *state) {
     return state->windowWidth;
 }
 
-int weeWindowHeight(weeState *state) {
+int gkWindowHeight(gkState *state) {
     return state->windowHeight;
 }
 
-int weeIsWindowFullscreen(weeState *state) {
+int gkIsWindowFullscreen(gkState *state) {
     return state->fullscreen;
 }
 
-void weeToggleFullscreen(weeState *state) {
+void gkToggleFullscreen(gkState *state) {
     state->fullscreen = !state->fullscreen;
 }
 
-int weeIsCursorVisible(weeState *state) {
+int gkIsCursorVisible(gkState *state) {
     return state->cursorVisible;
 }
 
-void weeToggleCursorVisible(weeState *state) {
+void gkToggleCursorVisible(gkState *state) {
     state->cursorVisible = !state->cursorVisible;
 }
 
-int weeIsCursorLocked(weeState *state) {
+int gkIsCursorLocked(gkState *state) {
     return state->cursorLocked;
 }
 
-void weeToggleCursorLock(weeState *state) {
+void gkToggleCursorLock(gkState *state) {
     state->cursorLocked = !state->cursorLocked;
 }
 
-uint64_t weeFindTexture(weeState *state, const char *name) {
+uint64_t gkFindTexture(gkState *state, const char *name) {
     uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
     return imap_lookup(state->textureMap, hash) ? hash : -1L;
 }
 
-void weePushTexture(weeState *state, uint64_t tid) {
+void gkPushTexture(gkState *state, uint64_t tid) {
     assert(state->textureStackCount < MAX_TEXTURE_STACK);
     assert(tid);
     imap_slot_t *slot = imap_lookup(state->textureMap, tid);
     assert(slot);
     state->textureStack[state->textureStackCount++] = tid;
-    state->currentTexture = (weeTexture*)imap_getval64(state->textureMap, slot);
+    state->currentTexture = (gkTexture*)imap_getval64(state->textureMap, slot);
 }
 
-uint64_t weePopTexture(weeState *state) {
+uint64_t gkPopTexture(gkState *state) {
     assert(state->textureStackCount > 0);
     uint64_t result = state->textureStack[state->textureStackCount-1];
     state->textureStack[state->textureStackCount--] = 0;
     return result;
 }
 
-void weeDrawTexture(weeState *state) {
+void gkDrawTexture(gkState *state) {
     uint64_t tid = state->textureStack[state->textureStackCount-1];
     assert(tid && state->currentTexture);
-    weeInternalDrawCall *call = malloc(sizeof(weeInternalDrawCall));
+    gkInternalDrawCall *call = malloc(sizeof(gkInternalDrawCall));
     call->texture = state->currentTexture;
-    memcpy(&call->desc, &state->currentDrawCall, sizeof(weeDrawCall));
-    ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_SINGLE, (void*)call);
+    memcpy(&call->desc, &state->currentDrawCall, sizeof(gkDrawCall));
+    ezStackAppend(&state->commandQueue, GAMEKIT_DRAW_CALL_SINGLE, (void*)call);
 }
 
-void weeBeginBatch(weeState *state) {
+void gkBeginBatch(gkState *state) {
     assert(!state->currentBatch);
     uint64_t tid = state->textureStack[state->textureStackCount-1];
     assert(tid && state->currentTexture);
     state->currentBatch = EmptyTextureBatch(state->currentTexture);
 }
 
-void weeDrawTextureBatch(weeState *state) {
+void gkDrawTextureBatch(gkState *state) {
     assert(state->currentBatch);
-    weeDrawCall *node = malloc(sizeof(weeDrawCall));
+    gkDrawCall *node = malloc(sizeof(gkDrawCall));
     node->next =  NULL;
-    memcpy(node, &state->currentDrawCall, sizeof(weeDrawCall));
+    memcpy(node, &state->currentDrawCall, sizeof(gkDrawCall));
     
     if (!state->currentDrawCall.head) {
         node->index = 1;
@@ -1021,49 +1035,49 @@ void weeDrawTextureBatch(weeState *state) {
     }
 }
 
-void weeEndBatch(weeState *state) {
+void gkEndBatch(gkState *state) {
     assert(state->currentBatch);
-    weeInternalDrawCall *call = malloc(sizeof(weeInternalDrawCall));
+    gkInternalDrawCall *call = malloc(sizeof(gkInternalDrawCall));
     call->texture = state->currentTexture;
     call->batch = state->currentBatch;
-    memcpy(&call->desc, &state->currentDrawCall, sizeof(weeDrawCall));
-    ezStackAppend(&state->commandQueue, WEE_DRAW_CALL_BATCH, (void*)call);
+    memcpy(&call->desc, &state->currentDrawCall, sizeof(gkDrawCall));
+    ezStackAppend(&state->commandQueue, GAMEKIT_DRAW_CALL_BATCH, (void*)call);
     state->currentBatch = NULL;
 }
 
-void weeSetPosition(weeState *state, float x, float y) {
+void gkSetPosition(gkState *state, float x, float y) {
     state->currentDrawCall.position = Vec2New(x, y);
 }
 
-void weePositionMoveBy(weeState *state, float dx, float dy) {
+void gkPositionMoveBy(gkState *state, float dx, float dy) {
     state->currentDrawCall.position += Vec2New(dx, dy);
 }
 
-void weeSetScale(weeState *state, float x, float y) {
+void gkSetScale(gkState *state, float x, float y) {
     state->currentDrawCall.scale = Vec2New(x, y);
 }
 
-void weeScaleBy(weeState *state, float dx, float dy) {
+void gkScaleBy(gkState *state, float dx, float dy) {
     state->currentDrawCall.scale += Vec2New(dx, dy);
 }
 
-void weeSetClip(weeState *state, float x, float y, float w, float h) {
-    state->currentDrawCall.clip = (weeRect){x, y, w, h};
+void gkSetClip(gkState *state, float x, float y, float w, float h) {
+    state->currentDrawCall.clip = (gkRect){x, y, w, h};
 }
 
-void weeSetRotation(weeState *state, float angle) {
+void gkSetRotation(gkState *state, float angle) {
     state->currentDrawCall.rotation = angle;
 }
 
-void weeRotateBy(weeState *state, float angle) {
+void gkRotateBy(gkState *state, float angle) {
     state->currentDrawCall.rotation += angle;
 }
 
-void weeClear(weeState *state) {
+void gkClear(gkState *state) {
     state->currentDrawCall.index = 0;
     state->currentDrawCall.position = Vec2Zero();
     state->currentDrawCall.scale = Vec2New(1.f, 1.f);
-    state->currentDrawCall.clip = (weeRect){0.f, 0.f, 0.f, 0.f};
+    state->currentDrawCall.clip = (gkRect){0.f, 0.f, 0.f, 0.f};
     state->currentDrawCall.rotation = 0.f;
     state->currentDrawCall.viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight);
     state->currentDrawCall.head = state->currentDrawCall.back = state->currentDrawCall.next = NULL;
