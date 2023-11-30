@@ -31,6 +31,9 @@ The _c-gamekit_ is a 2D game framework designed for the rapid development of gam
 - [dlfcn-win32/dlfcn-win32](https://github.com/dlfcn-win32/dlfcn-win32) (MIT)
     - dlfcn_win32.h
     - dlfcn_win32.c
+
+## References
+
 - [raysan5/raylib](https://github.com/raysan5/raylib/)
     - Math functions were hand converted from [raymath.h](https://github.com/raysan5/raylib/blob/master/src/raymath.h) and [reasings.h](https://github.com/raysan5/raylib/blob/master/examples/others/reasings.h)
 - [skeeto/interactive-c-demo](https://github.com/skeeto/interactive-c-demo)
