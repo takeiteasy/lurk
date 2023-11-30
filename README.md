@@ -1,6 +1,6 @@
 # c-gamekit 
 
-The _c-gamekit_ is a 2D game framework built with [sokol](https://github.com/floooh/sokol).
+The _c-gamekit_ is a 2D game framework designed for the rapid development of games.
 
 > [!WARNING]
 > Work in progress
@@ -13,6 +13,8 @@ The _c-gamekit_ is a 2D game framework built with [sokol](https://github.com/flo
     - sokol_glue.h
     - sokol_args.h
     - sokol_time.h
+- [edubart/sokol_gp](https://github.com/edubart/sokol_gp) (MIT)
+    - sokol_gp.h
 - [esr/microjson](https://gitlab.com/esr/microjson/) (BSD-2-clause)
     - mjson.h
 - [tsoding/jim](https://github.com/tsoding/jim) (MIT)
