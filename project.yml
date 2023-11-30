@@ -21,8 +21,6 @@ targets:
           type: folder
         - path: deps/
           type: folder
-        - path: tools/
-          type: folder
         - path: build/
           type: folder
         - path: Makefile
@@ -45,7 +43,7 @@ targets:
         - path: game/menu.c
         - path: src/
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/ez, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]
   game:
     type: library.dynamic
@@ -54,5 +52,5 @@ targets:
         - path: game/game.c
         - path: src/
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/deps/ez, $(PROJECT_DIR)/build]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/ez, $(PROJECT_DIR)/build]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]

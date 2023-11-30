@@ -29,20 +29,6 @@ endif
 
 INCLUDE=-Ibuild -Ideps -Iez -Igame -Isrc
 SOURCES=$(wildcard src/*.c)
-ARCH_PATH=./tools/$(ARCH)
-
-SHDC_PATH=$(ARCH_PATH)/sokol-shdc$(PROG_EXT)
-SHADERS=$(wildcard assets/*.glsl)
-SHADER_OUTS=$(patsubst %,%.h,$(SHADERS))
-
-.SECONDEXPANSION:
-SHADER=$(patsubst %.h,%,$@)
-SHADER_OUT=$@
-%.glsl.h: $(SHADERS)
-	$(SHDC_PATH) -i $(SHADER) -o $(SHADER_OUT) -l $(SHDC_FLAGS)
-
-shaders: $(SHADER_OUTS)
-	mv assets/*.h build/
 
 SCENES_PATH=game
 SCENES=$(wildcard $(SCENES_PATH)/*.c)
@@ -57,7 +43,7 @@ SCENE_OUT=$@
 scenes: $(SCENES_OUT)
 
 game/assets.ezc:
-	sh tools/cook.sh game/assets/* > game/assets.ezc
+	sh assets/cook.sh game/assets/* > game/assets.ezc
 
 assets: game/assets.ezc
 
@@ -71,8 +57,8 @@ clean:
 	rm -rf build/ || yes
 	mkdir build/
 
-all: clean assets shaders scenes debug
+all: clean assets scenes debug
 
 default: scenes
 
-.PHONY: all debug release shaders scenes clean
+.PHONY: all debug release scenes clean

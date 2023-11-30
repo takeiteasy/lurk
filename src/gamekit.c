@@ -31,9 +31,6 @@
 #include "gamekit.h"
 
 #if !defined(GAMEKIT_STATE)
-#include "framebuffer.glsl.h"
-#include "texture.glsl.h"
-
 static gkTexture* NewTexture(sg_image_desc *desc) {
     gkTexture *result = malloc(sizeof(gkTexture));
     result->internal = sg_make_image(desc);
@@ -109,115 +106,6 @@ static void UpdateTexture(gkTexture *texture, int *data, int w, int h) {
     sg_update_image(texture->internal, &desc);
 }
 
-typedef gkVertex Quad[6];
-
-static void GenerateQuad(Vec2f position, Vec2f textureSize, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip, Quad *out) {
-    Vec2f quad[4] = {
-        {position.x, position.y + size.y}, // bottom left
-        {position.x + size.x, position.y + size.y}, // bottom right
-        {position.x + size.x, position.y }, // top right
-        {position.x, position.y }, // top left
-    };
-    float vw =  2.f / (float)viewportSize.x;
-    float vh = -2.f / (float)viewportSize.y;
-    for (int j = 0; j < 4; j++)
-        quad[j] = (Vec2f) {
-            (vw * quad[j].x + -1.f) * scale.x,
-            (vh * quad[j].y +  1.f) * scale.y
-        };
-    
-    float iw = 1.f/textureSize.x, ih = 1.f/(float)textureSize.y;
-    float tl = clip.x*iw;
-    float tt = clip.y*ih;
-    float tr = (clip.x + clip.w)*iw;
-    float tb = (clip.y + clip.h)*ih;
-    Vec2f vtexquad[4] = {
-        {tl, tb}, // bottom left
-        {tr, tb}, // bottom right
-        {tr, tt}, // top right
-        {tl, tt}, // top left
-    };
-    static int indices[6] = {
-        0, 1, 2,
-        3, 0, 2
-    };
-    
-    for (int i = 0; i < 6; i++)
-        (*out)[i] = (gkVertex) {
-            .position = quad[indices[i]],
-            .texcoord = vtexquad[indices[i]],
-            .color = {1.f, 1.f, 1.f, 1.f}
-        };
-}
-
-static void DrawTexture(gkTexture *texture, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip) {
-    Quad quad;
-    Vec2f textureSize = {texture->w, texture->h};
-    if (clip.w < 0 && clip.h < 0) {
-        clip.w = textureSize.x;
-        clip.h = textureSize.y;
-    }
-    GenerateQuad(position, textureSize, size.x < 0 && size.y < 0 ? textureSize : size, scale, viewportSize, rotation, clip, &quad);
-    sg_buffer_desc desc = {
-        .data = SG_RANGE(quad)
-    };
-    sg_bindings bind = {
-        .vertex_buffers[0] = sg_make_buffer(&desc),
-        .fs_images[SLOT_tex] = texture->internal
-    };
-    sg_apply_bindings(&bind);
-    sg_draw(0, 6, 1);
-    sg_destroy_buffer(bind.vertex_buffers[0]);
-}
-#endif
-
-static gkTextureBatch* EmptyTextureBatch(gkTexture *texture) {
-    gkTextureBatch *result = malloc(sizeof(gkTextureBatch));
-    memset(result, 0, sizeof(gkTextureBatch));
-    result->size = (Vec2f){texture->w, texture->h};
-    result->texture = texture;
-    return result;
-}
-
-#if !defined(GAMEKIT_STATE)
-static void CompileTextureBatch(gkTextureBatch *batch) {
-    batch->vertices = malloc(batch->maxVertices * sizeof(gkVertex));
-    sg_buffer_desc desc = {
-        .usage = SG_USAGE_STREAM,
-        .size = batch->maxVertices * sizeof(gkVertex)
-    };
-    batch->bind = (sg_bindings) {
-        .vertex_buffers[0] = sg_make_buffer(&desc),
-        .fs_images[SLOT_tex] = batch->texture->internal
-    };
-}
-static void DestroyTextureBatch(gkTextureBatch *batch) {
-    if (batch) {
-        if (batch->vertices)
-            free(batch->vertices);
-        if (sg_query_buffer_state(batch->bind.vertex_buffers[0]) == SG_RESOURCESTATE_VALID)
-            sg_destroy_buffer(batch->bind.vertex_buffers[0]);
-        free(batch);
-    }
-}
-
-static void TextureBatchDraw(gkTextureBatch *batch, Vec2f position, Vec2f size, Vec2f scale, Vec2f viewportSize, float rotation, gkRect clip) {
-    GenerateQuad(position, batch->size, size, scale, viewportSize, rotation, clip, (Quad*)(batch->vertices + batch->vertexCount));
-    batch->vertexCount += 6;
-}
-
-static void FlushTextureBatch(gkTextureBatch *batch) {
-    sg_range range = {
-        .ptr = batch->vertices,
-        .size = batch->vertexCount * sizeof(gkVertex)
-    };
-    sg_update_buffer(batch->bind.vertex_buffers[0], &range);
-    sg_apply_bindings(&batch->bind);
-    sg_draw(0, batch->vertexCount, 1);
-    memset(batch->vertices, 0, batch->maxVertices * sizeof(gkVertex));
-    batch->vertexCount = 0;
-}
-
 gkState state = {
     .running = false,
     .desc = (sapp_desc) {
@@ -227,7 +115,10 @@ gkState state = {
         .window_title = DEFAULT_WINDOW_TITLE
     },
     .pass_action = {
-        .colors[0] = {.action=SG_ACTION_CLEAR, .value={0.39f, 0.58f, 0.92f, 1.f}}
+        .colors[0] = {
+            .load_action = SG_LOADACTION_CLEAR,
+            .clear_value = {0}
+        }
     }
 };
 
@@ -552,6 +443,9 @@ static void InitCallback(void) {
     };
     sg_setup(&desc);
     stm_setup();
+    sgp_desc desc_sgp = (sgp_desc) {};
+    sgp_setup(&desc_sgp);
+    assert(sg_isvalid() && sgp_is_valid());
     
     state.textureMapCapacity = 1;
     state.textureMapCount = 0;
@@ -580,63 +474,13 @@ static void InitCallback(void) {
                 free(buf);
                 imap_setval64(state.textureMap, slot, (uint64_t)texture);
             }
-        
         // TODO: Check other asset types
-        
         free((void*)extLower);
     }
     
-    sg_pipeline_desc offscreen_desc = {
-        .primitive_type = SG_PRIMITIVETYPE_TRIANGLES,
-        .shader = sg_make_shader(texture_program_shader_desc(sg_query_backend())),
-        .layout = {
-            .buffers[0].stride = sizeof(gkVertex),
-            .attrs = {
-                [ATTR_texture_vs_position].format=SG_VERTEXFORMAT_FLOAT2,
-                [ATTR_texture_vs_texcoord].format=SG_VERTEXFORMAT_FLOAT2,
-                [ATTR_texture_vs_color].format=SG_VERTEXFORMAT_FLOAT4
-            }
-        },
-        .depth = {
-//            .pixel_format = SG_PIXELFORMAT_DEPTH,
-            .compare = SG_COMPAREFUNC_LESS_EQUAL,
-            .write_enabled = true,
-        },
-        .colors[0] = {
-            .blend = {
-                .enabled = true,
-                .src_factor_rgb = SG_BLENDFACTOR_SRC_ALPHA,
-                .dst_factor_rgb = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .op_rgb = SG_BLENDOP_ADD,
-                .src_factor_alpha = SG_BLENDFACTOR_ONE,
-                .dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-                .op_alpha = SG_BLENDOP_ADD
-            },
-//            .pixel_format = SG_PIXELFORMAT_RGBA8
-        }
-    };
-    state.pip = sg_make_pipeline(&offscreen_desc);
-    
     state.windowWidth = sapp_width();
     state.windowHeight = sapp_height();
-    state.currentDrawCall = (gkDrawCall) {
-        .position = Vec2Zero(),
-        .viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight),
-        .scale = Vec2New(1.f, 1.f),
-        .clip = (gkRect){0.f, 0.f, 0.f, 0.f},
-        .rotation = 0.f
-    };
-    
-    state.currentDrawCall.index = 0;
-    state.currentDrawCall.position = Vec2Zero();
-    state.currentDrawCall.scale = Vec2New(1.f, 1.f);
-    state.currentDrawCall.clip = (gkRect){0.f, 0.f, 0.f, 0.f};
-    state.currentDrawCall.rotation = 0.f;
-    state.currentDrawCall.viewport = Vec2New((float)state.windowWidth, (float)state.windowHeight);
-    state.currentDrawCall.head = state.currentDrawCall.back = state.currentDrawCall.next = NULL;
-    state.commandQueue.front = state.commandQueue.back = NULL;
-    memset(&state.textureStack, 0, MAX_TEXTURE_STACK * sizeof(uint64_t));
-    state.textureStackCount = 0;
+    state.clearColor = (sg_color){0.39f, 0.58f, 0.92f, 1.f};
     
 #if defined(GAMEKIT_MAC)
     mach_timebase_info_data_t info;
@@ -711,35 +555,6 @@ GAMEKIT_SCENES
 GAMEKIT_SCENES
 #undef X
     gkPushScene(&state, GAMEKIT_FIRST_SCENE);
-}
-
-static void SingleDrawCall(gkInternalDrawCall *call) {
-    Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
-    if (call->desc.clip.x == 0.f && call->desc.clip.y == 0.f && call->desc.clip.w == 0.f && call->desc.clip.h == 0.f) {
-        call->desc.clip.w = size.x;
-        call->desc.clip.h = size.y;
-    }
-    DrawTexture(call->texture, call->desc.position, size, call->desc.scale, call->desc.viewport, call->desc.rotation, call->desc.clip);
-}
-
-static void BatchDrawCall(gkInternalDrawCall *call) {
-    Vec2f size = Vec2New((float)call->texture->w, (float)call->texture->h);
-    gkDrawCall *cursor = call->desc.head;
-    call->batch->maxVertices = call->desc.back->index * 6;
-    CompileTextureBatch(call->batch);
-    while (cursor) {
-        gkDrawCall *tmp = cursor->next;
-        if (cursor->clip.x == 0.f && cursor->clip.y == 0.f && cursor->clip.w == 0.f && cursor->clip.h == 0.f) {
-            cursor->clip.w = size.x;
-            cursor->clip.h = size.y;
-        }
-        TextureBatchDraw(call->batch, cursor->position, size, cursor->scale, cursor->viewport, cursor->rotation, cursor->clip);
-        free(cursor);
-        cursor = tmp;
-    }
-    FlushTextureBatch(call->batch);
-    DestroyTextureBatch(call->batch);
-    state.currentDrawCall.head = state.currentDrawCall.back = state.currentDrawCall.next = NULL;
 }
 
 static void FrameCallback(void) {
@@ -826,27 +641,19 @@ static void FrameCallback(void) {
                 state.frameAccumulator -= state.desiredFrameTime;
             }
     
-    sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
-    sg_apply_pipeline(state.pip);
+    sgp_begin(state.windowWidth, state.windowHeight);
+    sgp_set_color(state.clearColor.r,
+                  state.clearColor.g,
+                  state.clearColor.b,
+                  state.clearColor.a);
+    sgp_clear();
     if (state.currentScene && state.currentScene->scene->frame)
         state.currentScene->scene->frame(&state, state.currentScene->context, render_time);
+    // Assemble draw calls here
     
-    ezStackEntry *commandEntry = NULL;
-    while ((commandEntry = ezStackDrop(&state.commandQueue))) {
-        switch (commandEntry->id) {
-            case GAMEKIT_DRAW_CALL_SINGLE:
-                SingleDrawCall((gkInternalDrawCall*)commandEntry->data);
-                break;
-            case GAMEKIT_DRAW_CALL_BATCH:
-                BatchDrawCall((gkInternalDrawCall*)commandEntry->data);
-                break;
-            default:
-                assert(0);
-        }
-        free(commandEntry->data);
-        free(commandEntry);
-    }
-    
+    sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
+    sgp_flush();
+    sgp_end();
     sg_end_pass();
     sg_commit();
     
@@ -869,7 +676,6 @@ static void EventCallback(const sapp_event* e) {
 
 static void CleanupCallback(void) {
     state.running = false;
-    sg_destroy_pipeline(state.pip);
     ezContainerFree(state.assets);
 #define X(NAME)                                                                         \
     do {                                                                                \
@@ -1008,77 +814,10 @@ void gkDrawTexture(gkState *state) {
     assert(tid && state->currentTexture);
     gkInternalDrawCall *call = malloc(sizeof(gkInternalDrawCall));
     call->texture = state->currentTexture;
-    memcpy(&call->desc, &state->currentDrawCall, sizeof(gkDrawCall));
+//    memcpy(&call->desc, &state->currentDrawCall, sizeof(gkDrawCall));
     ezStackAppend(&state->commandQueue, GAMEKIT_DRAW_CALL_SINGLE, (void*)call);
 }
 
-void gkBeginBatch(gkState *state) {
-    assert(!state->currentBatch);
-    uint64_t tid = state->textureStack[state->textureStackCount-1];
-    assert(tid && state->currentTexture);
-    state->currentBatch = EmptyTextureBatch(state->currentTexture);
-}
-
-void gkDrawTextureBatch(gkState *state) {
-    assert(state->currentBatch);
-    gkDrawCall *node = malloc(sizeof(gkDrawCall));
-    node->next =  NULL;
-    memcpy(node, &state->currentDrawCall, sizeof(gkDrawCall));
-    
-    if (!state->currentDrawCall.head) {
-        node->index = 1;
-        state->currentDrawCall.head = state->currentDrawCall.back = node;
-    } else {
-        node->index = state->currentDrawCall.back->index + 1;
-        state->currentDrawCall.back->next = node;
-        state->currentDrawCall.back = node;
-    }
-}
-
-void gkEndBatch(gkState *state) {
-    assert(state->currentBatch);
-    gkInternalDrawCall *call = malloc(sizeof(gkInternalDrawCall));
-    call->texture = state->currentTexture;
-    call->batch = state->currentBatch;
-    memcpy(&call->desc, &state->currentDrawCall, sizeof(gkDrawCall));
-    ezStackAppend(&state->commandQueue, GAMEKIT_DRAW_CALL_BATCH, (void*)call);
-    state->currentBatch = NULL;
-}
-
-void gkSetPosition(gkState *state, float x, float y) {
-    state->currentDrawCall.position = Vec2New(x, y);
-}
-
-void gkPositionMoveBy(gkState *state, float dx, float dy) {
-    state->currentDrawCall.position += Vec2New(dx, dy);
-}
-
-void gkSetScale(gkState *state, float x, float y) {
-    state->currentDrawCall.scale = Vec2New(x, y);
-}
-
-void gkScaleBy(gkState *state, float dx, float dy) {
-    state->currentDrawCall.scale += Vec2New(dx, dy);
-}
-
-void gkSetClip(gkState *state, float x, float y, float w, float h) {
-    state->currentDrawCall.clip = (gkRect){x, y, w, h};
-}
-
-void gkSetRotation(gkState *state, float angle) {
-    state->currentDrawCall.rotation = angle;
-}
-
-void gkRotateBy(gkState *state, float angle) {
-    state->currentDrawCall.rotation += angle;
-}
-
 void gkClear(gkState *state) {
-    state->currentDrawCall.index = 0;
-    state->currentDrawCall.position = Vec2Zero();
-    state->currentDrawCall.scale = Vec2New(1.f, 1.f);
-    state->currentDrawCall.clip = (gkRect){0.f, 0.f, 0.f, 0.f};
-    state->currentDrawCall.rotation = 0.f;
-    state->currentDrawCall.viewport = Vec2New((float)state->windowWidth, (float)state->windowHeight);
-    state->currentDrawCall.head = state->currentDrawCall.back = state->currentDrawCall.next = NULL;
+    
 }

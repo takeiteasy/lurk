@@ -31,18 +31,6 @@ static void event(gkState* state, GameKit *scene, const sapp_event *e) {
 
 static void frame(gkState* state, GameKit *scene, float delta) {
     gkClear(state);
-    
-    gkPushTexture(state, scene->test_a);
-    gkBeginBatch(state);
-    for (int i = 0; i < 10; i++) {
-        gkPositionMoveBy(state, 5.f, 5.f);
-        gkDrawTextureBatch(state);
-    }
-    gkEndBatch(state);
-    gkPopTexture(state);
-    
-    gkClear(state);
-    gkSetPosition(state, 100.f, 100.f);
     gkPushTexture(state, scene->test_b);
     gkDrawTexture(state);
     gkPopTexture(state);

@@ -92,12 +92,10 @@ typedef enum bool {
 #include "sokol_glue.h"
 #if defined(GAMEKIT_STATE) && defined(SOKOL_IMPL)
 #undef SOKOL_IMPL
-#include "sokol_args.h"
-#include "sokol_time.h"
-#else
-#include "sokol_args.h"
-#include "sokol_time.h"
 #endif
+#include "sokol_args.h"
+#include "sokol_time.h"
+#include "sokol_gp.h"
 #include "jim.h"
 #include "mjson.h"
 #define IMAP_INTERFACE
@@ -228,11 +226,10 @@ typedef struct gkState {
     int textureMapCount;
     ezContainer *assets;
     ezStack commandQueue;
-    gkDrawCall currentDrawCall;
-    gkTextureBatch *currentBatch;
     gkTexture *currentTexture;
     uint64_t textureStack[MAX_TEXTURE_STACK];
     int textureStackCount;
+    sg_color clearColor;
 
     uint64_t timerFrequency;
     int64_t prevFrameTime;
@@ -256,7 +253,6 @@ typedef struct gkState {
     sapp_desc desc;
 
     sg_pass_action pass_action;
-    sg_pipeline pip;
 } gkState;
 
 struct gkScene {
@@ -289,17 +285,7 @@ EXPORT uint64_t gkCreateTexture(gkState *state, int w, int h);
 EXPORT void gkPushTexture(gkState *state, uint64_t tid);
 EXPORT uint64_t gkPopTexture(gkState *state);
 EXPORT void gkDrawTexture(gkState *state);
-EXPORT void gkBeginBatch(gkState *state);
-EXPORT void gkDrawTextureBatch(gkState *state);
-EXPORT void gkEndBatch(gkState *state);
 
-EXPORT void gkSetPosition(gkState *state, float x, float y);
-EXPORT void gkPositionMoveBy(gkState *state, float dx, float dy);
-EXPORT void gkSetScale(gkState *state, float x, float y);
-EXPORT void gkScaleBy(gkState *state, float dx, float dy);
-EXPORT void gkSetClip(gkState *state, float x, float y, float w, float h);
-EXPORT void gkSetRotation(gkState *state, float angle);
-EXPORT void gkRotateBy(gkState *state, float angle);
 EXPORT void gkClear(gkState *state);
 
 extern gkState state;
