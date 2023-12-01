@@ -2,7 +2,7 @@
 (import subprocess)
 (import json)
 
-(setv **wrap-funcs** (.split (.read (open "assets/sgp_funcs_list.txt"))))
+(setv **wrap-funcs** (.split (.read (open "tools/sgp_funcs_list.txt"))))
 
 (defmacro run-cmd [#* args]
   `(let [result (subprocess.run (list ~args) :stdout subprocess.PIPE)]
@@ -129,7 +129,7 @@
   (print "} gkCommand;")
   (blank-line)
   (print "static void PushCommand(gkState* state, gkCommand* command) {")
-  (blank-line)
+  (print "    ezStackAppend(&state->commandQueue, command->type, (void*)command);")
   (print "}")
   (blank-line)
   (for-entry-tree

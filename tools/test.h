@@ -84,7 +84,7 @@ typedef struct {
 } gkCommand;
 
 static void PushCommand(gkState* state, gkCommand* command) {
-
+    ezStackAppend(&state->commandQueue, command->type, (void*)command);
 }
 
 typedef struct {
