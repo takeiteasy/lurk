@@ -197,27 +197,6 @@ typedef struct gkInternalScene {
     struct gkInternalScene *next;
 } gkInternalScene;
 
-typedef enum gkCommandType {
-    GAMEKIT_DRAW_CALL_SINGLE,
-    GAMEKIT_DRAW_CALL_BATCH
-} gkCommandType;
-
-typedef struct gkDrawCall {
-    int index;
-    Vec2f position;
-    Vec2f viewport;
-    Vec2f scale;
-    gkRect clip;
-    float rotation;
-    struct gkDrawCall *head, *back, *next;
-} gkDrawCall;
-
-typedef struct gkInternalDrawCall {
-    gkTexture *texture;
-    gkDrawCall desc;
-    gkTextureBatch *batch;
-} gkInternalDrawCall;
-
 typedef struct gkState {
     gkInternalScene *currentScene;
     imap_node_t *sceneMap;
@@ -226,9 +205,6 @@ typedef struct gkState {
     int textureMapCount;
     ezContainer *assets;
     ezStack commandQueue;
-    gkTexture *currentTexture;
-    uint64_t textureStack[MAX_TEXTURE_STACK];
-    int textureStackCount;
     sg_color clearColor;
 
     uint64_t timerFrequency;
@@ -286,7 +262,44 @@ EXPORT void gkPushTexture(gkState *state, uint64_t tid);
 EXPORT uint64_t gkPopTexture(gkState *state);
 EXPORT void gkDrawTexture(gkState *state);
 
-EXPORT void gkClear(gkState *state);
+EXPORT void gkProject(gkState* state, float left, float right, float top, float bottom);
+EXPORT void gkResetProject(gkState* state);
+EXPORT void gkPushTransform(gkState* state);
+EXPORT void gkPopTransform(gkState* state);
+EXPORT void gkResetTransform(gkState* state);
+EXPORT void gkTranslate(gkState* state, float x, float y);
+EXPORT void gkRotate(gkState* state, float theta);
+EXPORT void gkRotateAt(gkState* state, float theta, float x, float y);
+EXPORT void gkScale(gkState* state, float sx, float sy);
+EXPORT void gkScaleAt(gkState* state, float sx, float sy, float x, float y);
+EXPORT void gkResetPipeline(gkState* state);
+EXPORT void gkSetUniform(gkState* state, void* data, int size);
+EXPORT void gkResetUniform(gkState* state);
+EXPORT void gkSetBlendMode(gkState* state, sgp_blend_mode blend_mode);
+EXPORT void gkResetBlendMode(gkState* state);
+EXPORT void gkSetColor(gkState* state, float r, float g, float b, float a);
+EXPORT void gkResetColor(gkState* state);
+EXPORT void gkUnsetImage(gkState* state, int channel);
+EXPORT void gkResetImage(gkState* state, int channel);
+EXPORT void gkResetSampler(gkState* state, int channel);
+EXPORT void gkViewport(gkState* state, int x, int y, int w, int h);
+EXPORT void gkResetViewport(gkState* state);
+EXPORT void gkScissor(gkState* state, int x, int y, int w, int h);
+EXPORT void gkResetScissor(gkState* state);
+EXPORT void gkResetState(gkState* state);
+EXPORT void gkClear(gkState* state);
+EXPORT void gkDrawPoints(gkState* state, sgp_point* points, int count);
+EXPORT void gkDrawPoint(gkState* state, float x, float y);
+EXPORT void gkDrawLines(gkState* state, sgp_line* lines, int count);
+EXPORT void gkDrawLine(gkState* state, float ax, float ay, float bx, float by);
+EXPORT void gkDrawLinesStrip(gkState* state, sgp_point* points, int count);
+EXPORT void gkDrawFilledTriangles(gkState* state, sgp_triangle* triangles, int count);
+EXPORT void gkDrawFilledTriangle(gkState* state, float ax, float ay, float bx, float by, float cx, float cy);
+EXPORT void gkDrawFilledTrianglesStrip(gkState* state, sgp_point* points, int count);
+EXPORT void gkDrawFilledRects(gkState* state, sgp_rect* rects, int count);
+EXPORT void gkDrawFilledRect(gkState* state, float x, float y, float w, float h);
+EXPORT void gkDrawTexturedRects(gkState* state, int channel, sgp_textured_rect* rects, int count);
+EXPORT void gkDrawTexturedRect(gkState* state, int channel, sgp_rect dest_rect, sgp_rect src_rect);
 
 extern gkState state;
 

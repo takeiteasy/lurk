@@ -5,3 +5,4 @@ build/
 project_test.yml
 .test.json
 *.json
+*.pyc
