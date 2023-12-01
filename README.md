@@ -5,7 +5,7 @@ The _c-gamekit_ is a 2D game framework designed for the rapid development of gam
 > [!WARNING]
 > Work in progress
 
-## Acknowledgements
+## Dependencies 
 
 - [floooh/sokol](https://github.com/floooh/sokol) (zlib/libpng)
     - sokol_gfx.h
