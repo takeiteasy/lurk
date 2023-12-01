@@ -198,8 +198,16 @@ typedef struct gkInternalScene {
 } gkInternalScene;
 
 typedef struct gkState {
-    gkInternalScene *currentScene;
-    imap_node_t *sceneMap;
+    const char *libraryPath;
+    void *libraryHandle;
+#if defined(GAMEKIT_POSIX)
+    ino_t libraryHandleID;
+#else
+    FILETIME libraryWriteTime;
+#endif
+    GameKit *libraryContext;
+    gkScene *libraryScene;
+    
     imap_node_t *textureMap;
     int textureMapCapacity;
     int textureMapCount;
@@ -244,8 +252,7 @@ struct gkScene {
     void (*postframe)(gkState*, GameKit*);
 };
 
-EXPORT void gkPushScene(gkState *state, const char *name);
-EXPORT void gkPopScene(gkState *state);
+EXPORT void gkSetScene(gkState *state, const char *name);
 
 EXPORT int gkWindowWidth(gkState *state);
 EXPORT int gkWindowHeight(gkState *state);

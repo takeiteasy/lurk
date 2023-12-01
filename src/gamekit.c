@@ -121,8 +121,6 @@ gkState state = {
         }
     }
 };
-
-static gkState *currentState = NULL;
 #endif
 
 //-----------------------------------------------------------------------------
@@ -1104,69 +1102,76 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 #endif
 
 #if !defined(GAMEKIT_STATE)
-static bool ShouldReloadLibrary(gkInternalScene *wis) {
+static bool ReloadLibrary(const char *path) {
+#if defined(GAMEKIT_DISABLE_SCENE_RELOAD)
+    return true;
+#endif
+    
 #if defined(GAMEKIT_WINDOWS)
-    FILETIME newTime = Win32GetLastWriteTime(Args.path);
-    bool result = CompareFileTime(&newTime, &wis->writeTime);
+    FILETIME newTime = Win32GetLastWriteTime(path);
+    bool result = CompareFileTime(&newTime, &state.libraryWriteTime);
     if (result)
-        wis->writeTime = newTime;
-    return result;
+        state.libraryWriteTime = newTime;
+    else
+        return true;
 #else
     struct stat attr;
-    bool result = !stat(wis->path, &attr) && wis->handleID != attr.st_ino;
+    bool result = !stat(path, &attr) && state.libraryHandleID != attr.st_ino;
     if (result)
-        wis->handleID = attr.st_ino;
-    return result;
-#endif
-}
-
-static bool ReloadLibrary(gkInternalScene *wis) {
-#if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
-    assert(wis);
-    if (!ShouldReloadLibrary(wis))
+        state.libraryHandleID = attr.st_ino;
+    else
         return true;
 #endif
     
-    if (wis->handle) {
-        if (wis->scene->unload)
-            wis->scene->unload(currentState, wis->context);
-        dlclose(wis->handle);
+    size_t libraryPathLength = state.libraryPath ? strlen(state.libraryPath) : 0;
+    
+    if (state.libraryHandle) {
+        if (libraryPathLength != strlen(path) ||
+            strncmp(state.libraryPath, path, libraryPathLength)) {
+            if (state.libraryScene->deinit)
+                state.libraryScene->deinit(&state, state.libraryContext);
+        } else {
+            if (state.libraryScene->unload)
+                state.libraryScene->unload(&state, state.libraryContext);
+        }
+        dlclose(state.libraryHandle);
     }
     
 #if defined(GAMEKIT_WINDOWS)
-    size_t newPathSize = strlen(wis->path) + 4;
+    size_t newPathSize = libraryPathLength + 4;
     char *newPath = malloc(sizeof(char) * newPathSize);
-    char *noExt = RemoveExt(wis->path);
+    char *noExt = RemoveExt(state.libraryPath);
     sprintf(newPath, "%s.tmp.dll", noExt);
-    CopyFile(wis->path, newPath, 0);
-    if (!(wis->handle = dlopen(newPath, RTLD_NOW)))
+    CopyFile(state.libraryPath, newPath, 0);
+    if (!(state.libraryHandle = dlopen(newPath, RTLD_NOW)))
         goto BAIL;
     free(newPath);
     free(noExt);
-    if (!wis->handle)
+    if (!state.libraryHandle)
 #else
-    if (!(wis->handle = dlopen(wis->path, RTLD_NOW)))
+    if (!(state.libraryHandle = dlopen(path, RTLD_NOW)))
 #endif
         goto BAIL;
-    if (!(wis->scene = dlsym(wis->handle, "scene")))
+    if (!(state.libraryScene = dlsym(state.libraryHandle, "scene")))
         goto BAIL;
-    if (!wis->context) {
-        if (!(wis->context = wis->scene->init(currentState)))
+    if (!state.libraryContext) {
+        if (!(state.libraryContext = state.libraryScene->init(&state)))
             goto BAIL;
     } else {
-        if (wis->scene->reload)
-            wis->scene->reload(currentState, wis->context);
+        if (state.libraryScene->reload)
+            state.libraryScene->reload(&state, state.libraryContext);
     }
+    state.libraryPath = path;
     return true;
 
 BAIL:
-    if (wis->handle)
-        dlclose(wis->handle);
-    wis->handle = NULL;
+    if (state.libraryHandle)
+        dlclose(state.libraryHandle);
+    state.libraryHandle = NULL;
 #if defined(GAMEKIT_WINDOWS)
-    memset(&writeTime, 0, sizeof(FILETIME));
+    memset(&state.libraryWriteTime, 0, sizeof(FILETIME));
 #else
-    wis->handleID = 0;
+    state.libraryHandleID = 0;
 #endif
     return false;
 }
@@ -1390,7 +1395,6 @@ static void InitCallback(void) {
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
     
-    currentState = &state;
 #if defined(GAMEKIT_MAC)
 #define DYLIB_EXT ".dylib"
 #elif defined(GAMEKIT_WINDOWS)
@@ -1401,30 +1405,10 @@ static void InitCallback(void) {
 #error Unsupported operating system
 #endif
     
-#if !defined(GAMEKIT_DYLIB_PATH)
-#define GAMEKIT_DYLIB_PATH ResolvePath("./");
-#endif
-    
-    int sceneCount = 0;
-#define X(NAME) sceneCount++;
-GAMEKIT_SCENES
-#undef X
-    state.sceneMap = imap_ensure(NULL, sceneCount);
-#define X(NAME)                                                       \
-    do {                                                              \
-        uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0); \
-        imap_slot_t *slot = imap_assign(state.sceneMap, hash);        \
-        gkInternalScene *wis = malloc(sizeof(gkInternalScene));     \
-        wis->path = GAMEKIT_DYLIB_PATH NAME DYLIB_EXT;                    \
-        wis->context = NULL;                                          \
-        wis->scene = NULL;                                            \
-        wis->handle = NULL;                                           \
-        assert(ReloadLibrary(wis));                                   \
-        imap_setval64(state.sceneMap, slot, (uint64_t)wis);           \
-    } while (0);
-GAMEKIT_SCENES
-#undef X
-    gkPushScene(&state, GAMEKIT_FIRST_SCENE);
+    // TODO: This needs reworking, temporary solution
+#define LOAD_INITIAL_LIBRARY \
+    assert(ReloadLibrary("./" GAMEKIT_DYLIB_PATH "/" GAMEKIT_FIRST_SCENE DYLIB_EXT));
+    LOAD_INITIAL_LIBRARY
 }
 
 static void FrameCallback(void) {
@@ -1444,12 +1428,11 @@ static void FrameCallback(void) {
     }
     
 #if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
-    if (state.currentScene)
-        assert(ReloadLibrary(state.currentScene));
+    assert(ReloadLibrary(state.libraryPath));
 #endif
     
-    if (state.currentScene && state.currentScene->scene->preframe)
-        state.currentScene->scene->preframe(&state, state.currentScene->context);
+    if (state.libraryScene->preframe)
+        state.libraryScene->preframe(&state, state.libraryContext);
     
     int64_t current_frame_time = stm_now();
     int64_t delta_time = current_frame_time - state.prevFrameTime;
@@ -1488,26 +1471,26 @@ static void FrameCallback(void) {
         int64_t consumedDeltaTime = delta_time;
         
         while (state.frameAccumulator >= state.desiredFrameTime) {
-            if (state.currentScene && state.currentScene->scene->fixedupdate)
-                state.currentScene->scene->fixedupdate(&state, state.currentScene->context, state.fixedDeltaTime);
+            if (state.libraryScene->fixedupdate)
+                state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
             if (consumedDeltaTime > state.desiredFrameTime) {
-                if (state.currentScene && state.currentScene->scene->update)
-                    state.currentScene->scene->update(&state, state.currentScene->context, state.fixedDeltaTime);
+                if (state.libraryScene->update)
+                    state.libraryScene->update(&state, state.libraryContext, state.fixedDeltaTime);
                 consumedDeltaTime -= state.desiredFrameTime;
             }
             state.frameAccumulator -= state.desiredFrameTime;
         }
         
-        if (state.currentScene && state.currentScene->scene->update)
-            state.currentScene->scene->update(&state, state.currentScene->context, (double)consumedDeltaTime / state.timerFrequency);
+        if (state.libraryScene->update)
+            state.libraryScene->update(&state, state.libraryContext, (double)consumedDeltaTime / state.timerFrequency);
         render_time = (double)state.frameAccumulator / state.desiredFrameTime;
     } else
         while (state.frameAccumulator >= state.desiredFrameTime*state.updateMultiplicity)
             for (int i = 0; i < state.updateMultiplicity; ++i) {
-                if (state.currentScene && state.currentScene->scene->fixedupdate)
-                    state.currentScene->scene->fixedupdate(&state, state.currentScene->context, state.fixedDeltaTime);
-                if (state.currentScene && state.currentScene->scene->update)
-                    state.currentScene->scene->update(&state, state.currentScene->context, state.fixedDeltaTime);
+                if (state.libraryScene->fixedupdate)
+                    state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
+                if (state.libraryScene->update)
+                    state.libraryScene->update(&state, state.libraryContext, state.fixedDeltaTime);
                 state.frameAccumulator -= state.desiredFrameTime;
             }
     
@@ -1524,8 +1507,8 @@ static void FrameCallback(void) {
         free(head);
     }
     sgp_clear();
-    if (state.currentScene && state.currentScene->scene->frame)
-        state.currentScene->scene->frame(&state, state.currentScene->context, render_time);
+    if (state.libraryScene->frame)
+        state.libraryScene->frame(&state, state.libraryContext, render_time);
     // Assemble draw calls here
     
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
@@ -1534,8 +1517,8 @@ static void FrameCallback(void) {
     sg_end_pass();
     sg_commit();
     
-    if (state.currentScene && state.currentScene->scene->postframe)
-        state.currentScene->scene->postframe(&state, state.currentScene->context);
+    if (state.libraryScene->postframe)
+        state.libraryScene->postframe(&state, state.libraryContext);
 }
 
 static void EventCallback(const sapp_event* e) {
@@ -1547,8 +1530,8 @@ static void EventCallback(const sapp_event* e) {
         default:
             break;
     }
-    if (state.currentScene && state.currentScene->scene->event)
-        state.currentScene->scene->event(&state, state.currentScene->context, e);
+    if (state.libraryScene->event)
+        state.libraryScene->event(&state, state.libraryContext, e);
 }
 
 static void CleanupCallback(void) {
@@ -1562,7 +1545,7 @@ static void CleanupCallback(void) {
         gkInternalScene *wis = (gkInternalScene*)imap_getval64(state.sceneMap, slot); \
         free(wis);                                                                      \
     } while (0);
-GAMEKIT_SCENES
+//GAMEKIT_SCENES
 #undef X
     sg_shutdown();
 }
@@ -1606,31 +1589,8 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 }
 #endif
 
-void gkPushScene(gkState *state, const char *name) {
-    uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
-    imap_slot_t *slot = imap_lookup(state->sceneMap, hash);
-    assert(slot);
-    gkInternalScene *wis = (gkInternalScene*)imap_getval64(state->sceneMap, slot);
-    bool reload = false;
-    if (state->currentScene) {
-        wis->next = state->currentScene;
-        if (state->currentScene->scene->unload)
-            state->currentScene->scene->unload(state, state->currentScene->context);
-        reload = true;
-    }
-    state->currentScene = wis;
-    if (reload && state->currentScene->scene->reload)
-        state->currentScene->scene->reload(state, state->currentScene->context);
-}
-
-void gkPopScene(gkState *state) {
-    if (state)
-        sapp_quit();
-    else {
-        if (state->currentScene->scene->unload)
-            state->currentScene->scene->unload(state, state->currentScene->context);
-        state->currentScene = state->currentScene->next;
-    }
+void gkSetScene(gkState *state, const char *name) {
+    
 }
 
 int gkWindowWidth(gkState *state) {
