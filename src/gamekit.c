@@ -1537,16 +1537,9 @@ static void EventCallback(const sapp_event* e) {
 static void CleanupCallback(void) {
     state.running = false;
     ezContainerFree(state.assets);
-#define X(NAME)                                                                         \
-    do {                                                                                \
-        uint64_t hash = MurmurHash((void*)(NAME), strlen((NAME)), 0);                   \
-        imap_slot_t *slot = imap_lookup(state.sceneMap, hash);                          \
-        assert(slot);                                                                   \
-        gkInternalScene *wis = (gkInternalScene*)imap_getval64(state.sceneMap, slot); \
-        free(wis);                                                                      \
-    } while (0);
-//GAMEKIT_SCENES
-#undef X
+    if (state.libraryScene->deinit)
+        state.libraryScene->deinit(&state, state.libraryContext);
+    dlclose(state.libraryHandle);
     sg_shutdown();
 }
 
