@@ -30,10 +30,7 @@ static void event(gkState* state, GameKit *scene, const sapp_event *e) {
 }
 
 static void frame(gkState* state, GameKit *scene, float delta) {
-    gkClear(state);
-    gkPushTexture(state, scene->test_b);
-    gkDrawTexture(state);
-    gkPopTexture(state);
+    
 }
 
 EXPORT const gkScene scene = {

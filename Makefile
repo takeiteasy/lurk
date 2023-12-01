@@ -27,7 +27,7 @@ else
 	endif
 endif
 
-INCLUDE=-Ibuild -Ideps -Iez -Igame -Isrc
+INCLUDE=-Ideps -Igame -Isrc
 SOURCES=$(wildcard src/*.c)
 
 SCENES_PATH=game
@@ -43,7 +43,7 @@ SCENE_OUT=$@
 scenes: $(SCENES_OUT)
 
 game/assets.ezc:
-	sh assets/cook.sh game/assets/* > game/assets.ezc
+	sh tools/cook.sh game/assets/* > game/assets.ezc
 
 assets: game/assets.ezc
 

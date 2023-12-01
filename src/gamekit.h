@@ -104,12 +104,12 @@ typedef enum bool {
 #define STB_NO_GIF
 #include "stb_image.h"
 #include "stb_image_write.h"
-#include "ezimage.h"
-#include "ezmath.h"
-#include "ezrng.h"
-#include "ezfs.h"
-#include "ezcontainer.h"
-#include "ezstack.h"
+#include "ez/ezimage.h"
+#include "ez/ezmath.h"
+#include "ez/ezrng.h"
+#include "ez/ezfs.h"
+#include "ez/ezcontainer.h"
+#include "ez/ezstack.h"
 
 #include "config.h"
 
