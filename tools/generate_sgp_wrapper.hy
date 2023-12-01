@@ -19,7 +19,7 @@
     (lfor p params
           (let [tag (get (get p "type") "tag")
                 ptype (match tag
-                             ":int" "int" ;; TODO: Handle :void*
+                             ":int" "int"
                              ":float" "float"
                              ":pointer" (let [sub-tag (get (get (get p "type") "type") "tag")]
                                           (if (= sub-tag ":void")
@@ -100,6 +100,7 @@
             (print f"        gk{new-name}Data* data = (gk{new-name}Data*)command->data;")
             (let [formatted-params (.join ", " (lfor p params (+ "data->" (get (.split p " ") 1))))]
               (print f"        {old-name}({formatted-params});"))
+            (print "        break;")
             (print "    }"))
           (do
             (print f"    case {(+ "gkCommand" new-name)}:")

@@ -35,6 +35,9 @@ static void frame(gkState* state, GameKit *scene, float delta) {
     gkProject(state, -ratio, ratio, 1.f, -1.f);
     gkSetColor(state, .1f, .1f, .1f, 1.f);
     gkClear(state);
+    
+    gkSetColor(state, 1.f, 0.f, 0.f, 1.f);
+    gkDrawFilledRect(state, -.5f, -.5f, 1.f, 1.f);
 }
 
 EXPORT const gkScene scene = {

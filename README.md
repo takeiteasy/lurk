@@ -1,6 +1,6 @@
 # c-gamekit 
 
-The _c-gamekit_ is a 2D game framework designed for the rapid development of games.
+The _c-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games.
 
 > [!WARNING]
 > Work in progress

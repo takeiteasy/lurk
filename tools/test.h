@@ -739,6 +739,7 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandProject: {
         gkProjectData* data = (gkProjectData*)command->data;
         sgp_project(data->left, data->right, data->top, data->bottom);
+        break;
     }
     case gkCommandResetProject:
         sgp_reset_project();
@@ -755,22 +756,27 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandTranslate: {
         gkTranslateData* data = (gkTranslateData*)command->data;
         sgp_translate(data->x, data->y);
+        break;
     }
     case gkCommandRotate: {
         gkRotateData* data = (gkRotateData*)command->data;
         sgp_rotate(data->theta);
+        break;
     }
     case gkCommandRotateAt: {
         gkRotateAtData* data = (gkRotateAtData*)command->data;
         sgp_rotate_at(data->theta, data->x, data->y);
+        break;
     }
     case gkCommandScale: {
         gkScaleData* data = (gkScaleData*)command->data;
         sgp_scale(data->sx, data->sy);
+        break;
     }
     case gkCommandScaleAt: {
         gkScaleAtData* data = (gkScaleAtData*)command->data;
         sgp_scale_at(data->sx, data->sy, data->x, data->y);
+        break;
     }
     case gkCommandResetPipeline:
         sgp_reset_pipeline();
@@ -778,6 +784,7 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandSetUniform: {
         gkSetUniformData* data = (gkSetUniformData*)command->data;
         sgp_set_uniform(data->data, data->size);
+        break;
     }
     case gkCommandResetUniform:
         sgp_reset_uniform();
@@ -785,6 +792,7 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandSetBlendMode: {
         gkSetBlendModeData* data = (gkSetBlendModeData*)command->data;
         sgp_set_blend_mode(data->blend_mode);
+        break;
     }
     case gkCommandResetBlendMode:
         sgp_reset_blend_mode();
@@ -792,6 +800,7 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandSetColor: {
         gkSetColorData* data = (gkSetColorData*)command->data;
         sgp_set_color(data->r, data->g, data->b, data->a);
+        break;
     }
     case gkCommandResetColor:
         sgp_reset_color();
@@ -799,18 +808,22 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandUnsetImage: {
         gkUnsetImageData* data = (gkUnsetImageData*)command->data;
         sgp_unset_image(data->channel);
+        break;
     }
     case gkCommandResetImage: {
         gkResetImageData* data = (gkResetImageData*)command->data;
         sgp_reset_image(data->channel);
+        break;
     }
     case gkCommandResetSampler: {
         gkResetSamplerData* data = (gkResetSamplerData*)command->data;
         sgp_reset_sampler(data->channel);
+        break;
     }
     case gkCommandViewport: {
         gkViewportData* data = (gkViewportData*)command->data;
         sgp_viewport(data->x, data->y, data->w, data->h);
+        break;
     }
     case gkCommandResetViewport:
         sgp_reset_viewport();
@@ -818,6 +831,7 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandScissor: {
         gkScissorData* data = (gkScissorData*)command->data;
         sgp_scissor(data->x, data->y, data->w, data->h);
+        break;
     }
     case gkCommandResetScissor:
         sgp_reset_scissor();
@@ -831,50 +845,62 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandDrawPoints: {
         gkDrawPointsData* data = (gkDrawPointsData*)command->data;
         sgp_draw_points(data->points, data->count);
+        break;
     }
     case gkCommandDrawPoint: {
         gkDrawPointData* data = (gkDrawPointData*)command->data;
         sgp_draw_point(data->x, data->y);
+        break;
     }
     case gkCommandDrawLines: {
         gkDrawLinesData* data = (gkDrawLinesData*)command->data;
         sgp_draw_lines(data->lines, data->count);
+        break;
     }
     case gkCommandDrawLine: {
         gkDrawLineData* data = (gkDrawLineData*)command->data;
         sgp_draw_line(data->ax, data->ay, data->bx, data->by);
+        break;
     }
     case gkCommandDrawLinesStrip: {
         gkDrawLinesStripData* data = (gkDrawLinesStripData*)command->data;
         sgp_draw_lines_strip(data->points, data->count);
+        break;
     }
     case gkCommandDrawFilledTriangles: {
         gkDrawFilledTrianglesData* data = (gkDrawFilledTrianglesData*)command->data;
         sgp_draw_filled_triangles(data->triangles, data->count);
+        break;
     }
     case gkCommandDrawFilledTriangle: {
         gkDrawFilledTriangleData* data = (gkDrawFilledTriangleData*)command->data;
         sgp_draw_filled_triangle(data->ax, data->ay, data->bx, data->by, data->cx, data->cy);
+        break;
     }
     case gkCommandDrawFilledTrianglesStrip: {
         gkDrawFilledTrianglesStripData* data = (gkDrawFilledTrianglesStripData*)command->data;
         sgp_draw_filled_triangles_strip(data->points, data->count);
+        break;
     }
     case gkCommandDrawFilledRects: {
         gkDrawFilledRectsData* data = (gkDrawFilledRectsData*)command->data;
         sgp_draw_filled_rects(data->rects, data->count);
+        break;
     }
     case gkCommandDrawFilledRect: {
         gkDrawFilledRectData* data = (gkDrawFilledRectData*)command->data;
         sgp_draw_filled_rect(data->x, data->y, data->w, data->h);
+        break;
     }
     case gkCommandDrawTexturedRects: {
         gkDrawTexturedRectsData* data = (gkDrawTexturedRectsData*)command->data;
         sgp_draw_textured_rects(data->channel, data->rects, data->count);
+        break;
     }
     case gkCommandDrawTexturedRect: {
         gkDrawTexturedRectData* data = (gkDrawTexturedRectData*)command->data;
         sgp_draw_textured_rect(data->channel, data->dest_rect, data->src_rect);
+        break;
     }
     default:
         abort();
