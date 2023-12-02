@@ -1427,6 +1427,16 @@ static void InitCallback(void) {
     assert(ReloadLibrary(state.nextScene));
 }
 
+static void ProcessCommandQueue(void) {
+    while (state.commandQueue.front) {
+        gkCommand *command = (gkCommand*)state.commandQueue.front->data;
+        ProcessCommand(command);
+        FreeCommand(command);
+        ezStackEntry *head = ezStackShift(&state.commandQueue);
+        free(head);
+    }
+}
+
 static void FrameCallback(void) {
     if (state.fullscreen != state.fullscreenLast) {
         sapp_toggle_fullscreen();
@@ -1451,8 +1461,10 @@ static void FrameCallback(void) {
         assert(ReloadLibrary(state.libraryPath));
 #endif
     
-    if (state.libraryScene->preframe)
+    if (state.libraryScene->preframe) {
         state.libraryScene->preframe(&state, state.libraryContext);
+        ProcessCommandQueue();
+    }
     
     int64_t current_frame_time = stm_now();
     int64_t delta_time = current_frame_time - state.prevFrameTime;
@@ -1517,13 +1529,7 @@ static void FrameCallback(void) {
     sgp_begin(state.windowWidth, state.windowHeight);
     if (state.libraryScene->frame)
         state.libraryScene->frame(&state, state.libraryContext, render_time);
-    while (state.commandQueue.front) {
-        gkCommand *command = (gkCommand*)state.commandQueue.front->data;
-        ProcessCommand(command);
-        FreeCommand(command);
-        ezStackEntry *head = ezStackShift(&state.commandQueue);
-        free(head);
-    }
+    ProcessCommandQueue();
     
     state.pass_action.colors[0].clear_value = state.clearColor;
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);

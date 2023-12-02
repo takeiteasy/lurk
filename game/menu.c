@@ -28,7 +28,7 @@ static void event(gkState* state, GameKit *scene, const sapp_event *e) {
 }
 
 static void frame(gkState* state, GameKit *scene, float delta) {
-    gkSwapToScene(state, "./build/game.dylib");
+    
 }
 
 EXPORT const gkScene scene = {
