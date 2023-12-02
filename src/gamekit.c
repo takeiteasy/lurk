@@ -43,7 +43,7 @@ static gkTexture* EmptyTexture(unsigned int w, unsigned int h) {
     sg_image_desc desc = {
         .width = w,
         .height = h,
-//        .pixel_format = SG_PIXELFORMAT_RGBA8,
+        .pixel_format = SG_PIXELFORMAT_RGBA8,
         .usage = SG_USAGE_STREAM
     };
     return NewTexture(&desc);
@@ -1522,11 +1522,6 @@ static void FrameCallback(void) {
             }
     
     sgp_begin(state.windowWidth, state.windowHeight);
-    sgp_set_color(state.clearColor.r,
-                  state.clearColor.g,
-                  state.clearColor.b,
-                  state.clearColor.a);
-    sgp_clear();
     if (state.libraryScene->frame)
         state.libraryScene->frame(&state, state.libraryContext, render_time);
     while (state.commandQueue.front) {
@@ -1537,6 +1532,7 @@ static void FrameCallback(void) {
         free(head);
     }
     
+    state.pass_action.colors[0].clear_value = state.clearColor;
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     sgp_flush();
     sgp_end();

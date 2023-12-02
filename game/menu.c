@@ -7,7 +7,7 @@ struct GameKit {
 
 static GameKit* init(gkState* state) {
     GameKit *result = malloc(sizeof(struct GameKit));
-    result->test_a = gkFindTexture(state, "test.png");
+    result->test_a = gkFindTexture(state, "test2.png");
     return result;
 }
 
