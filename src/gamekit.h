@@ -186,6 +186,7 @@ typedef struct gkState {
 #endif
     GameKit *libraryContext;
     gkScene *libraryScene;
+    const char *nextScene;
     
     imap_node_t *textureMap;
     int textureMapCapacity;
@@ -231,7 +232,7 @@ struct gkScene {
     void (*postframe)(gkState*, GameKit*);
 };
 
-EXPORT void gkSetScene(gkState *state, const char *name);
+EXPORT void gkSwapToScene(gkState *state, const char *name);
 
 EXPORT int gkWindowWidth(gkState *state);
 EXPORT int gkWindowHeight(gkState *state);

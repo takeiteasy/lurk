@@ -1422,20 +1422,9 @@ static void InitCallback(void) {
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
     
-#if defined(GAMEKIT_MAC)
-#define DYLIB_EXT ".dylib"
-#elif defined(GAMEKIT_WINDOWS)
-#define DYLIB_EXT ".dll"
-#elif defined(GAMEKIT_LINUX)
-#define DYLIB_EXT ".so"
-#else
-#error Unsupported operating system
-#endif
-    
-    // TODO: This needs reworking, temporary solution
-#define LOAD_INITIAL_LIBRARY \
-    assert(ReloadLibrary("./" GAMEKIT_DYLIB_PATH "/" GAMEKIT_FIRST_SCENE DYLIB_EXT));
-    LOAD_INITIAL_LIBRARY
+    state.nextScene = NULL;
+    gkSwapToScene(&state, GAMEKIT_FIRST_SCENE);
+    assert(ReloadLibrary(state.nextScene));
 }
 
 static void FrameCallback(void) {
@@ -1454,8 +1443,12 @@ static void FrameCallback(void) {
         state.cursorLockedLast = state.cursorLocked;
     }
     
+    if (state.nextScene) {
+        assert(ReloadLibrary(state.nextScene));
+        state.nextScene = NULL;
+    } else
 #if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
-    assert(ReloadLibrary(state.libraryPath));
+        assert(ReloadLibrary(state.libraryPath));
 #endif
     
     if (state.libraryScene->preframe)
@@ -1604,8 +1597,25 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 }
 #endif
 
-void gkSetScene(gkState *state, const char *name) {
-    
+#if defined(GAMEKIT_MAC)
+#define DYLIB_EXT ".dylib"
+#elif defined(GAMEKIT_WINDOWS)
+#define DYLIB_EXT ".dll"
+#elif defined(GAMEKIT_LINUX)
+#define DYLIB_EXT ".so"
+#else
+#error Unsupported operating system
+#endif
+
+void gkSwapToScene(gkState *state, const char *name) {
+    const char *ext = FileExt(name);
+    if (ext)
+        state->nextScene = name;
+    else {
+        static char path[MAX_PATH];
+        sprintf(path, "./%s/%s%s", GAMEKIT_DYLIB_PATH, name, DYLIB_EXT);
+        state->nextScene = path;
+    }
 }
 
 int gkWindowWidth(gkState *state) {

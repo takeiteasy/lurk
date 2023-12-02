@@ -28,14 +28,7 @@ static void event(gkState* state, GameKit *scene, const sapp_event *e) {
 }
 
 static void frame(gkState* state, GameKit *scene, float delta) {
-    int w = state->windowWidth;
-    int h = state->windowHeight;
-    gkViewport(state, 0, 0, w, h);
-//    float ratio = (float)w / (float)h;
-//    gkProject(state, ratio, -ratio, 1.f, -1.f);
-    
-    gkSetImage(state, scene->test_a, 0);
-    gkDrawTexturedRect(state, 0, (sgp_rect){0, 0, 256, 256}, (sgp_rect){0, 0, 256, 256});
+    gkSwapToScene(state, "./build/game.dylib");
 }
 
 EXPORT const gkScene scene = {
