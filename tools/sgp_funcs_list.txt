@@ -8,7 +8,6 @@ sgp_rotate
 sgp_rotate_at
 sgp_scale
 sgp_scale_at
-sgp_set_pipeline
 sgp_reset_pipeline
 sgp_set_uniform
 sgp_reset_uniform
@@ -16,10 +15,8 @@ sgp_set_blend_mode
 sgp_reset_blend_mode
 sgp_set_color
 sgp_reset_color
-sgp_set_image
 sgp_unset_image
 sgp_reset_image
-sgp_set_sampler
 sgp_reset_sampler
 sgp_viewport
 sgp_reset_viewport

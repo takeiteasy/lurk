@@ -214,11 +214,6 @@ static uint64_t MurmurHash(const void *data, size_t len, uint32_t seed) {
     return *(uint64_t*)out;
 }
 
-typedef struct {
-    const char *name;
-    gkInternalScene *wis;
-} SceneBucket;
-
 typedef enum {
     gkCommandProject,
     gkCommandResetProject,
@@ -237,6 +232,7 @@ typedef enum {
     gkCommandResetBlendMode,
     gkCommandSetColor,
     gkCommandResetColor,
+    gkCommandSetImage,
     gkCommandUnsetImage,
     gkCommandResetImage,
     gkCommandResetSampler,
@@ -467,6 +463,27 @@ void gkResetColor(gkState *state) {
     gkCommand* cmd = malloc(sizeof(gkCommand));
     cmd->type = gkCommandResetColor;
     cmd->data = NULL;
+    PushCommand(state, cmd);
+}
+
+typedef struct {
+    int channel;
+    gkTexture* texture;
+} gkSetImageData;
+
+void gkSetImage(gkState* state, uint64_t texture_id, int channel) {
+    assert(texture_id);
+    imap_slot_t* slot = imap_lookup(state->textureMap, texture_id);
+    assert(slot);
+    gkTexture* texture = (gkTexture*)imap_getval64(state->textureMap, slot);
+    assert(texture);
+    
+    gkCommand* cmd = malloc(sizeof(gkCommand));
+    cmd->type = gkCommandSetImage;
+    gkSetImageData* cmdData = malloc(sizeof(gkSetImageData));
+    cmdData->channel = channel;
+    cmdData->texture = texture;
+    cmd->data = cmdData;
     PushCommand(state, cmd);
 }
 
@@ -824,6 +841,11 @@ static void FreeCommand(gkCommand* command) {
         free(data);
         break;
     }
+    case gkCommandSetImage: {
+        gkSetImageData* data = (gkSetImageData*)command->data;
+        free(data);
+        break;
+    }
     case gkCommandUnsetImage: {
         gkUnsetImageData* data = (gkUnsetImageData*)command->data;
         free(data);
@@ -987,6 +1009,11 @@ static void ProcessCommand(gkCommand* command) {
     case gkCommandResetColor:
         sgp_reset_color();
         break;
+    case gkCommandSetImage: {
+        gkSetImageData* data = (gkSetImageData*)command->data;
+        sgp_set_image(data->channel, data->texture->internal);
+        break;
+    }
     case gkCommandUnsetImage: {
         gkUnsetImageData* data = (gkUnsetImageData*)command->data;
         sgp_unset_image(data->channel);
@@ -1499,6 +1526,9 @@ static void FrameCallback(void) {
                   state.clearColor.g,
                   state.clearColor.b,
                   state.clearColor.a);
+    sgp_clear();
+    if (state.libraryScene->frame)
+        state.libraryScene->frame(&state, state.libraryContext, render_time);
     while (state.commandQueue.front) {
         gkCommand *command = (gkCommand*)state.commandQueue.front->data;
         ProcessCommand(command);
@@ -1506,10 +1536,6 @@ static void FrameCallback(void) {
         ezStackEntry *head = ezStackShift(&state.commandQueue);
         free(head);
     }
-    sgp_clear();
-    if (state.libraryScene->frame)
-        state.libraryScene->frame(&state, state.libraryContext, render_time);
-    // Assemble draw calls here
     
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     sgp_flush();

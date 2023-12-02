@@ -7,6 +7,7 @@ struct GameKit {
 
 static GameKit* init(gkState* state) {
     GameKit *result = malloc(sizeof(struct GameKit));
+    result->test_a = gkFindTexture(state, "test.png");
     return result;
 }
 
@@ -27,14 +28,14 @@ static void event(gkState* state, GameKit *scene, const sapp_event *e) {
 }
 
 static void frame(gkState* state, GameKit *scene, float delta) {
-    gkViewport(state, 0, 0, 640, 480);
-    float ratio = 640.f / 480.f;
-    gkProject(state, -ratio, ratio, 1.f, -1.f);
-    gkSetColor(state, .1f, .1f, .1f, 1.f);
-    gkClear(state);
+    int w = state->windowWidth;
+    int h = state->windowHeight;
+    gkViewport(state, 0, 0, w, h);
+//    float ratio = (float)w / (float)h;
+//    gkProject(state, ratio, -ratio, 1.f, -1.f);
     
-    gkSetColor(state, 1.f, 1.f, 0.f, 1.f);
-    gkDrawFilledRect(state, -.5f, -.5f, 1.f, 1.f);
+    gkSetImage(state, scene->test_a, 0);
+    gkDrawTexturedRect(state, 0, (sgp_rect){0, 0, 256, 256}, (sgp_rect){0, 0, 256, 256});
 }
 
 EXPORT const gkScene scene = {

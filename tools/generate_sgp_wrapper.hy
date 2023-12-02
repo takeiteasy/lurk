@@ -110,7 +110,6 @@
   (print "    default:")
   (print "        abort();")
   (print "    }")
-  (print "    FreeCommand(command);")
   (print "}"))
 
 (defn generate-header [tree]
@@ -121,7 +120,7 @@
           (print f"EXPORT void gk{new-name}(gkState* state);"))))
   (blank-line))
 
-(let [tree (json.loads (run-cmd "c2ffi" "deps/sokol_gp.h"))]
+(let [tree (json.loads (run-cmd "c2ffi" "tools/sgp.h"))]
   (generate-header tree)
   (generate-enums tree)
   (print "typedef struct {")

@@ -173,29 +173,8 @@ typedef struct gkTexture {
     int w, h;
 } gkTexture;
 
-typedef struct gkTextureBatch {
-    gkTexture *texture;
-    gkVertex *vertices;
-    int maxVertices, vertexCount;
-    sg_bindings bind;
-    Vec2f size;
-} gkTextureBatch;
-
 typedef struct gkScene gkScene;
 typedef struct GameKit GameKit;
-
-typedef struct gkInternalScene {
-    const char *path;
-    void *handle;
-#if defined(GAMEKIT_POSIX)
-    ino_t handleID;
-#else
-    FILETIME writeTime;
-#endif
-    GameKit *context;
-    gkScene *scene;
-    struct gkInternalScene *next;
-} gkInternalScene;
 
 typedef struct gkState {
     const char *libraryPath;
@@ -265,9 +244,6 @@ EXPORT void gkToggleCursorLock(gkState *state);
 
 EXPORT uint64_t gkFindTexture(gkState *state, const char *name);
 EXPORT uint64_t gkCreateTexture(gkState *state, int w, int h);
-EXPORT void gkPushTexture(gkState *state, uint64_t tid);
-EXPORT uint64_t gkPopTexture(gkState *state);
-EXPORT void gkDrawTexture(gkState *state);
 
 EXPORT void gkProject(gkState* state, float left, float right, float top, float bottom);
 EXPORT void gkResetProject(gkState* state);
@@ -286,6 +262,7 @@ EXPORT void gkSetBlendMode(gkState* state, sgp_blend_mode blend_mode);
 EXPORT void gkResetBlendMode(gkState* state);
 EXPORT void gkSetColor(gkState* state, float r, float g, float b, float a);
 EXPORT void gkResetColor(gkState* state);
+EXPORT void gkSetImage(gkState* state, uint64_t texture_id, int channel);
 EXPORT void gkUnsetImage(gkState* state, int channel);
 EXPORT void gkResetImage(gkState* state, int channel);
 EXPORT void gkResetSampler(gkState* state, int channel);
