@@ -244,7 +244,7 @@ EXPORT int gkIsCursorLocked(gkState *state);
 EXPORT void gkToggleCursorLock(gkState *state);
 
 EXPORT uint64_t gkFindTexture(gkState *state, const char *name);
-EXPORT uint64_t gkCreateTexture(gkState *state, int w, int h);
+EXPORT void gkCreateTexture(gkState *state, const char *name, ezImage *image);
 
 EXPORT void gkProject(gkState* state, float left, float right, float top, float bottom);
 EXPORT void gkResetProject(gkState* state);

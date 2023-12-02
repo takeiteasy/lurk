@@ -254,6 +254,7 @@ typedef enum {
     gkCommandDrawFilledRect,
     gkCommandDrawTexturedRects,
     gkCommandDrawTexturedRect,
+    gkCommandCreateTexture
 } gkCommandType;
 
 typedef struct {
@@ -792,6 +793,22 @@ void gkDrawTexturedRect(gkState *state, int channel, sgp_rect dest_rect, sgp_rec
     PushCommand(state, cmd);
 }
 
+typedef struct {
+    ezImage *image;
+    const char *name;
+} gkCreateTextureData;
+
+void gkCreateTexture(gkState *state, const char *name, ezImage *image) {
+    gkCommand* cmd = malloc(sizeof(gkCommand));
+    cmd->type = gkCommandDrawTexturedRect;
+    gkCreateTextureData* cmdData = malloc(sizeof(gkCreateTextureData));
+    cmdData->name = name;
+    cmdData->image = image;
+    cmd->data = cmdData;
+    PushCommand(state, cmd);
+}
+
+#if !defined(GAMEKIT_STATE)
 static void FreeCommand(gkCommand* command) {
     gkCommandType type = command->type;
     switch
@@ -1111,10 +1128,21 @@ static void ProcessCommand(gkCommand* command) {
         sgp_draw_textured_rect(data->channel, data->dest_rect, data->src_rect);
         break;
     }
+    case gkCommandCreateTexture: {
+        gkCreateTextureData* data = (gkCreateTextureData*)command->data;
+        uint64_t hash = MurmurHash((void*)data->name, strlen(data->name), 0);
+        imap_slot_t *slot = imap_assign(state.textureMap, hash);
+        assert(!slot);
+        gkTexture* texture = EmptyTexture(data->image->w, data->image->h);
+        UpdateTexture(texture, data->image->buf, data->image->w, data->image->h);
+        imap_setval64(state.textureMap, slot, (uint64_t)texture);
+        break;
+    }
     default:
         abort();
     }
 }
+#endif
 
 #if defined(GAMEKIT_WINDOWS)
 static FILETIME Win32GetLastWriteTime(char* path) {
@@ -1314,7 +1342,7 @@ static int ParseArguments(int argc, char *argv[]) {
 // MARK: Program loop
 
 #define VALID_EXTS_LEN 9
-static const char *validImages[VALID_EXTS_LEN] = {
+static const char *VALID_IMAGE_EXTS[VALID_EXTS_LEN] = {
     "jpg",
     "png",
     "tga",
@@ -1359,7 +1387,7 @@ static void InitCallback(void) {
         const char *extLower = ToLower(ext, 0);
         
         for (int i = 0; i < VALID_EXTS_LEN; i++)
-            if (!strncmp(validImages[i], extLower, 3)) {
+            if (!strncmp(VALID_IMAGE_EXTS[i], extLower, 3)) {
                 if (++state.textureMapCount > state.textureMapCapacity) {
                     state.textureMapCapacity += state.textureMapCapacity;
                     state.textureMap = imap_ensure(state.textureMap, state.textureMapCapacity);
