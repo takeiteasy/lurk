@@ -3,14 +3,17 @@
 (import json)
 (import argparse)
 (import sys [exit])
+(import re)
 
 (setv **header-input** None
-      **list-input None)
+      **list-input** None
+      **prefix** None)
 
 (let [parser (argparse.ArgumentParser :description "Wrap a library for c-gamekit"
                                       :formatter-class argparse.ArgumentDefaultsHelpFormatter)]
   (parser.add-argument "--header" :help "Path to header file")
   (parser.add-argument "--list" :help "Path to list of functions to wrap")
+  (parser.add-argument "--prefix" :help "Remove prefix (optional)")
   (let [args (parser.parse-args)]
     (if (or (not args.header)
             (not args.list))
@@ -18,7 +21,8 @@
           (print parser)
           (exit 1))
         (setv **header-input** args.header
-              **list-input** args.list))))
+              **list-input** args.list
+              **prefix** args.prefix))))
 
 (setv **wrap-funcs** (.split (.read (open **list-input**))))
 
@@ -26,11 +30,19 @@
   `(let [result (subprocess.run (list ~args) :stdout subprocess.PIPE)]
      (result.stdout.decode "utf-8")))
 
+(defmacro if-match [string pattern pos-body neg-body]
+  `(let [$ (re.match ~pattern ~string)]
+     (if $
+       ~pos-body
+       ~neg-body)))
+
 (defn snake->camel [name]
-  (let [parts (.split name "_")
-        new-name (get parts (slice 1 None))]
-    (.join "" (lfor p new-name
-                    (.capitalize p)))))
+  (let [out (if-match name r"^[a-z_]+$"
+                      (.join "" (lfor p (.split name "_") (.capitalize p)))
+                      name)]
+    (if **prefix**
+        (re.sub f"^{**prefix**}" "" out)
+        out)))
 
 (defn convert-parameters [new-name entry]
   (let [params (get entry "parameters")]
