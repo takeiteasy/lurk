@@ -1163,6 +1163,78 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 }
 #endif
 
+ezEntity gkNewEntity(gkState* state) {
+    return ezEcsNewEntity(state->world);
+}
+
+ezEntity gkNewComponent(gkState* state, size_t sizeOfComponent) {
+    return ezEcsNewComponent(state->world, sizeOfComponent);
+}
+
+ezEntity gkNewSystem(gkState* state, ezSystemCb fn, size_t sizeOfComponents) {
+    return ezEcsNewSystem(state->world, fn, sizeOfComponents);
+}
+
+ezEntity gkNewPrefab(gkState* state, size_t sizeOfComponents) {
+    return ezEcsNewPrefab(state->world, sizeOfComponents);
+}
+
+void gkDeleteEntity(gkState* state, ezEntity entity) {
+    ezEcsDeleteEntity(state->world, entity);
+}
+
+bool gkIsValid(gkState* state, ezEntity entity) {
+    return ezEcsIsValid(state->world, entity);
+}
+
+bool gkHas(gkState* state, ezEntity entity, ezEntity component) {
+    return ezEcsHas(state->world, entity, component);
+}
+
+void gkAttach(gkState* state, ezEntity entity, ezEntity component) {
+    ezEcsAttach(state->world, entity, component);
+}
+
+void gkAssociate(gkState* state, ezEntity entity, ezEntity object, ezEntity relation) {
+    ezEcsAssociate(state->world, entity, object, relation);
+}
+
+void gkDetach(gkState* state, ezEntity entity, ezEntity component) {
+    ezEcsDetach(state->world, entity, component);
+}
+
+void gkDisassociate(gkState* state, ezEntity entity) {
+    ezEcsDisassociate(state->world, entity);
+}
+
+bool gkHasRelation(gkState* state, ezEntity entity, ezEntity object) {
+    return ezEcsHasRelation(state->world, entity, object);
+}
+
+bool gkRelated(gkState* state, ezEntity entity, ezEntity relation) {
+    return ezEcsRekated(state->world, entity, relation);
+}
+
+void* gkGet(gkState* state, ezEntity entity, ezEntity component) {
+    return ezEcsGet(state->world, entity, component);
+}
+
+void gkSet(gkState* state, ezEntity entity, ezEntity component, void* data) {
+    ezEcsSet(state->world, entity, component, data);
+}
+
+void gkRelations(gkState* state, ezEntity entity, ezEntity relation, ezSystemCb cb) {
+    ezEcsRelations(state->world, entity, relation, cb);
+}
+
+void gkQuery(gkState* state, ezSystemCb cb, ezEntity* components, size_t sizeOfComponents) {
+    ezEcsQuery(state->world, cb, components, sizeOfComponents);
+}
+
+void gkViewField(gkState* state, ezView* view, size_t index) {
+    ezEcsViewField(state->world, view, index);
+}
+
 #if !defined(GAMEKIT_STATE)
 static bool ReloadLibrary(const char *path) {
 #if defined(GAMEKIT_DISABLE_HOTRELOAD)
@@ -1425,10 +1497,10 @@ static void AssetWatchCallback(dmon_watch_id watch_id,
                                void* user) {
 //    if (DoesFileExist(GAMEKIT_ASSETS_PATH_OUT))
 //        remove(GAMEKIT_ASSETS_PATH_OUT);
-    
+
     // TODO: Check if file exists inside map
     // TODO: Compare file hashes
-    
+
     switch (action) {
         case DMON_ACTION_CREATE:
             break;
@@ -1440,7 +1512,7 @@ static void AssetWatchCallback(dmon_watch_id watch_id,
             break;
     }
     return;
-    
+
     int count = 0;
 #if defined(GAMEKIT_POSIX)
     const char **files = GetFilesInDir(rootdir, &count);
