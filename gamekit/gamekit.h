@@ -320,20 +320,17 @@ typedef ezRelation gkRelation;
 #define GK_PREFAB_TYPE ezEcsPrefabType
 #define GK_RELATION_TYPE ezEcsRelationType
 
-#define GK_COMPONENT(STATE, T) (gkNewComponent((STATE), sizeof((T))))
-#define GK_TAG(STATE, T) (gkNewComponent((STATE), 0))
-#define GK_QUERY(STATE, CB, ...) (gkQuery((STATE), (CB), (gkEntity[]){__VA_ARGS__}, sizeof((gkEntity[]){__VA_ARGS__}) / sizeof(ezEntity)))
-#define EZ_FIELD(VIEW, T, IDX) (T *)gkViewField((VIEW), (IDX))
-#define GK_SYSTEM(STATE, CB, ...) (gkNewSystem((STATE), (CB), N_ARGS(__VA_ARGS__), __VA_ARGS__))
-#define GK_PREFAB(STATE, ...) (gkNewPrefab((STATE), N_ARGS(__VA_ARGS__), __VA_ARGS__))
+#define GK_COMPONENT(STATE, T) (ezEcsNewComponent((STATE), sizeof(T)))
+#define GK_TAG(STATE, T) (ezEcsNewComponent((STATE)->world, 0))
+#define GK_QUERY(STATE, CB, ...) (ezEcsQuery((STATE)->world, (CB), (gkEntity[]){__VA_ARGS__}, sizeof((gkEntity[]){__VA_ARGS__}) / sizeof(gkEntity)))
+#define GK_FIELD(VIEW, T, IDX) (T *)ezEcsViewField((VIEW), (IDX))
+#define GK_SYSTEM(STATE, CB, ...) (ezEcsNewSystem((STATE)->world, (CB), N_ARGS(__VA_ARGS__), __VA_ARGS__))
+#define GK_PREFAB(STATE, ...) (ezEcsNewPrefab((STATE)->world, N_ARGS(__VA_ARGS__), __VA_ARGS__))
 
 #define GK_IS_CHILD_OF(STATE, PARENT, CB) (gkRelations((STATE), (PARENT), GK_CHILD, (CB)))
 #define GK_IS_ENTITY_A(E, TYPE) ((E).parts.flag == ezEcs##TYPE##Type)
 
 EXPORT gkEntity gkNewEntity(gkState* state);
-EXPORT gkEntity gkNewComponent(gkState* state, size_t sizeOfComponent);
-EXPORT gkEntity gkNewSystem(gkState* state, ezSystemCb fn, size_t sizeOfComponents);
-EXPORT gkEntity gkNewPrefab(gkState* state, size_t sizeOfComponents);
 EXPORT void gkDeleteEntity(gkState* state, gkEntity entity);
 EXPORT bool gkIsValid(gkState* state, gkEntity entity);
 EXPORT bool gkHas(gkState* state, gkEntity entity, gkEntity component);
@@ -345,9 +342,7 @@ EXPORT bool gkHasRelation(gkState* state, gkEntity entity, gkEntity object);
 EXPORT bool gkRelated(gkState* state, gkEntity entity, gkEntity relation);
 EXPORT void* gkGet(gkState* state, gkEntity entity, gkEntity component);
 EXPORT void gkSet(gkState* state, gkEntity entity, gkEntity component, void* data);
-EXPORT void gkRelations(gkState* state, gkEntity entity, gkEntity relation, ezSystemCb cb);
-EXPORT void gkQuery(gkState* state, ezSystemCb cb, gkEntity* components, size_t sizeOfComponents);
-EXPORT void gkViewField(gkState* state, ezView* view, size_t index);
+EXPORT void gkRelations(gkState* state, gkEntity entity, gkEntity relation, gkSystemCb cb);
 
 extern gkState state;
 
