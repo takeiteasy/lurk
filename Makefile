@@ -27,35 +27,38 @@ else
 	endif
 endif
 
-INCLUDE=-Ideps -Igame -Isrc
-SOURCES=$(wildcard src/*.c)
+OUT_PATH=build
+SCENES_PATH=scenes
+INCLUDE=-Igamekit -Igamekit/deps -I$(SCENES_PATH)
+SOURCES=$(wildcard gamekit/*.c)
 
-SCENES_PATH=game
 SCENES=$(wildcard $(SCENES_PATH)/*.c)
-SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,build/%.$(LIB_EXT), $(SCENES))
+SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,$(OUT_PATH)/%.$(LIB_EXT), $(SCENES))
 
 .SECONDEXPANSION:
-SCENE=$(patsubst build/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
+SCENE=$(patsubst $(OUT_PATH)/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
 SCENE_OUT=$@
 %.$(LIB_EXT): $(SCENES)
 	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DGAMEKIT_STATE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
 
-scenes: $(SCENES_OUT)
+$(OUT_PATH):
+	mkdir $(OUT_PATH)
 
-game/assets.ezc:
-	sh tools/cook.sh game/assets/* > game/assets.ezc
+scenes: $(OUT_PATH) $(SCENES_OUT)
 
-assets: game/assets.ezc
+$(SCENES_PATH)/assets.ezc:
+	sh tools/cook.sh $(SCENES_PATH)/assets/* > $(SCENES_PATH)/assets.ezc
 
-debug:
-	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/gamekit_$(ARCH)$(PROG_EXT)
+assets: $(SCENES_PATH)/assets.ezc
 
-release:
-		$(CC) $(INCLUDE) -DGAMEKIT_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o build/gamekit_$(ARCH)$(PROG_EXT)
+debug: $(OUT_PATH)
+	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o $(OUT_PATH)/gamekit_$(ARCH)$(PROG_EXT)
+
+release: $(OUT_PATH)
+		$(CC) $(INCLUDE) -DGAMEKIT_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o $(OUT_PATH)/gamekit_$(ARCH)$(PROG_EXT)
 
 clean:
-	rm -rf build/ || yes
-	mkdir build/
+	rm -rf $(OUT_PATH)/ || yes
 
 all: clean assets scenes debug
 

@@ -19,38 +19,33 @@ targets:
     sources:
         - path: tools/
           type: folder
-        - path: deps/
-          type: folder
         - path: build/
           type: folder
         - path: Makefile
         - path: project.yml
         - path: README.md
-        - path: game/config.h
-        - path: src/
+        - path: scenes/config.h
+        - path: gamekit/
+          excludes:
+            - "deps/"
+        - path: gamekit/deps/
+          type: folder
     dependencies:
         - sdk: Cocoa.framework
         - sdk: Metal.framework
         - sdk: MetalKit.framework
         - sdk: Quartz.framework
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps, $(PROJECT_DIR)/game]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]
-  menu:
+  test:
     type: library.dynamic
     platform: macOS
     sources:
-        - path: game/menu.c
-        - path: src/
+        - path: scenes/test.c
+        - path: gamekit/
+          excludes:
+            - "deps/"
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]
-  game:
-    type: library.dynamic
-    platform: macOS
-    sources:
-        - path: game/game.c
-        - path: src/
-    settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/src, $(PROJECT_DIR)/deps]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]
