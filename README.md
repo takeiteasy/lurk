@@ -3,8 +3,11 @@
 > [!WARNING]
 > Work in progress
 
-The _c-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games. To achieve this, the framework is built around hot-reloading; meaning code changes can be updated in real time - without having to rebuild and relaunch the entire game. The goal of the project is to provide enough tools to be able to create games quickly and without (too much) fuss. Performace is always important, however the main goal is development speed and ease.
+The _c-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games. The goal of the project is a high-level API, focused on development speed and ease. While performance is important for all applications (obviously), that is not the main aim for this project.
 
+To achieve this, the framework is built around hot-reloading; meaning code changes can be updated in real time - without having to rebuild and relaunch the entire game.
+
+## Preview
 
 <p align="center">
    <img src="https://raw.githubusercontent.com/takeiteasy/c-gamekit/master/demo.gif">
