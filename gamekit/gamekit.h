@@ -320,7 +320,7 @@ typedef ezRelation gkRelation;
 #define GK_PREFAB_TYPE ezEcsPrefabType
 #define GK_RELATION_TYPE ezEcsRelationType
 
-#define GK_COMPONENT(STATE, T) (ezEcsNewComponent((STATE), sizeof(T)))
+#define GK_COMPONENT(STATE, T) (ezEcsNewComponent((STATE)->world, sizeof(T)))
 #define GK_TAG(STATE, T) (ezEcsNewComponent((STATE)->world, 0))
 #define GK_QUERY(STATE, CB, ...) (ezEcsQuery((STATE)->world, (CB), (gkEntity[]){__VA_ARGS__}, sizeof((gkEntity[]){__VA_ARGS__}) / sizeof(gkEntity)))
 #define GK_FIELD(VIEW, T, IDX) (T *)ezEcsViewField((VIEW), (IDX))
