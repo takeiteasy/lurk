@@ -28,7 +28,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define EZ_IMPLEMENTATION
 #define IMAP_IMPLEMENTATION
+#define DMON_IMPL
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include "gamekit.h"
+#pragma clang diagnostic pop
 
 #if !defined(GAMEKIT_STATE)
 static gkTexture* NewTexture(sg_image_desc *desc) {
@@ -1368,7 +1372,7 @@ static const char* ToLower(const char *str, int length) {
 
 static bool IsFile(const char *path) {
     struct stat st;
-    return stat(ent->d_name, &st) != -1 && S_ISREG(st.st_mode);
+    return stat(path, &st) != -1 && S_ISREG(st.st_mode);
 }
 
 static int CountFilesInDir(const char *path) {
@@ -1393,9 +1397,9 @@ static int CountFilesInDir(const char *path) {
     return result;
 }
 
-static char** GetFilesInDir(const char *path, int *count_out) {
+static const char** GetFilesInDir(const char *path, int *count_out) {
     int count = CountFilesInDir(path);
-    char** result = malloc(sizeof(char*) * count);
+    const char** result = malloc(sizeof(char*) * count);
     int index = 0;
 #if defined(GAMEKIT_POSIX)
     DIR *dir = opendir(path);
@@ -1430,10 +1434,10 @@ static void AssetWatchCallback(dmon_watch_id watch_id,
 
     int count = 0;
 #if defined(GAMEKIT_POSIX)
-    char **files = GetFilesInDir(GAMEKIT_ASSETS_PATH_IN, &count);
+    const char **files = GetFilesInDir(GAMEKIT_ASSETS_PATH_IN, &count);
 #else
 #define WINDOWS_ASSETS_SEARCH_PATH GAMEKIT_ASSETS_PATH_IN "/*"
-    char **files = GetFilesInDir(WINDOWS_ASSET_SEARCH_PATH, &count);
+    const char **files = GetFilesInDir(WINDOWS_ASSET_SEARCH_PATH, &count);
 #endif
     assert(count);
     ezContainerWrite(GAMEKIT_ASSETS_PATH_OUT, count, files);

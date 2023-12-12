@@ -82,10 +82,11 @@ typedef enum bool {
 #if defined(GAMEKIT_MAC)
 #include <mach/mach_time.h>
 #endif
-    #if defined(GAMEKIT_POSIX)
+#if defined(GAMEKIT_POSIX)
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #else
 #include "dlfcn_win32.h"
@@ -105,6 +106,7 @@ typedef enum bool {
 #include "sokol_gp.h"
 #include "jim.h"
 #include "mjson.h"
+#include "dmon.h"
 #define IMAP_INTERFACE
 #include "imap.h"
 #include "qoi.h"

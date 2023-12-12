@@ -8,7 +8,7 @@ else
 	UNAME:=$(shell uname -s)
 	PROG_EXT=
 	ifeq ($(UNAME),Darwin)
-		SOKOL_FLAGS=-x objective-c -DSOKOL_METAL -fobjc-arc -framework CoreServices -framework CoreFoundation -lpthread -framework Metal -framework Cocoa -framework MetalKit -framework Quartz -framework AudioToolbox
+		SOKOL_FLAGS=-x objective-c -DSOKOL_METAL -fno-objc-arc -framework CoreServices -framework CoreFoundation -lpthread -framework Metal -framework Cocoa -framework MetalKit -framework Quartz -framework AudioToolbox
 		ARCH:=$(shell uname -m)
 		LIB_EXT=dylib
 		ifeq ($(ARCH),arm64)
