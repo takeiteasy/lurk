@@ -77,7 +77,7 @@ static int* LoadImage(unsigned char *data, int sizeOfData, int *w, int *h) {
     } else
         in = stbi_load_from_memory(data, sizeOfData, &_w, &_h, &c, 4);
     assert(in && _w && _h);
-    
+
     int *buf = malloc(_w * _h * sizeof(int));
     for (int x = 0; x < _w; x++)
         for (int y = 0; y < _h; y++) {
@@ -478,7 +478,7 @@ void gkSetImage(gkState* state, uint64_t texture_id, int channel) {
     assert(slot);
     gkTexture* texture = (gkTexture*)imap_getval64(state->textureMap, slot);
     assert(texture);
-    
+
     gkCommand* cmd = malloc(sizeof(gkCommand));
     cmd->type = gkCommandSetImage;
     gkSetImageData* cmdData = malloc(sizeof(gkSetImageData));
@@ -1158,10 +1158,10 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 
 #if !defined(GAMEKIT_STATE)
 static bool ReloadLibrary(const char *path) {
-#if defined(GAMEKIT_DISABLE_SCENE_RELOAD)
+#if defined(GAMEKIT_DISABLE_HOTRELOAD)
     return true;
 #endif
-    
+
 #if defined(GAMEKIT_WINDOWS)
     FILETIME newTime = Win32GetLastWriteTime(path);
     bool result = CompareFileTime(&newTime, &state.libraryWriteTime);
@@ -1177,9 +1177,9 @@ static bool ReloadLibrary(const char *path) {
     else
         return true;
 #endif
-    
+
     size_t libraryPathLength = state.libraryPath ? strlen(state.libraryPath) : 0;
-    
+
     if (state.libraryHandle) {
         if (libraryPathLength != strlen(path) ||
             strncmp(state.libraryPath, path, libraryPathLength)) {
@@ -1191,7 +1191,7 @@ static bool ReloadLibrary(const char *path) {
         }
         dlclose(state.libraryHandle);
     }
-    
+
 #if defined(GAMEKIT_WINDOWS)
     size_t newPathSize = libraryPathLength + 4;
     char *newPath = malloc(sizeof(char) * newPathSize);
@@ -1293,7 +1293,7 @@ static int ParseArguments(int argc, char *argv[]) {
 #endif
     };
     sargs_setup(&desc);
-    
+
 #if !defined(GAMEKIT_EMSCRIPTEN)
     if (sargs_exists("help")) {
         Usage(name);
@@ -1314,7 +1314,7 @@ static int ParseArguments(int argc, char *argv[]) {
         LoadConfig(path);
     }
 #endif // GAMEKIT_EMSCRIPTEN
-    
+
 #define boolean 1
 #define integer 0
 #define X(NAME, TYPE, VAL, DEFAULT, DOCS)                                               \
@@ -1366,6 +1366,80 @@ static const char* ToLower(const char *str, int length) {
     return result;
 }
 
+static bool IsFile(const char *path) {
+    struct stat st;
+    return stat(ent->d_name, &st) != -1 && S_ISREG(st.st_mode);
+}
+
+static int CountFilesInDir(const char *path) {
+    int result = 0;
+#if defined(GAMEKIT_POSIX)
+    DIR *dir = opendir(path);
+    assert(dir);
+    struct dirent *ent;
+    while ((ent = readdir(dir)))
+        if (IsFile(ent->d_name))
+            result++;
+    closedir(dir);
+#else
+    WIN32_FIND_DATA FindFileData;
+    HANDLE hFind = FindFirstFile(path, &FindFileData);
+    do {
+        if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            result++;
+    } while (FindNextFile(hFind, &FindFileData));
+    FindClose(hFind);
+#endif
+    return result;
+}
+
+static char** GetFilesInDir(const char *path, int *count_out) {
+    int count = CountFilesInDir(path);
+    char** result = malloc(sizeof(char*) * count);
+    int index = 0;
+#if defined(GAMEKIT_POSIX)
+    DIR *dir = opendir(path);
+    assert(dir);
+    struct dirent *ent;
+    while ((ent = readdir(dir)))
+        if (IsFile(ent->d_name))
+            result[index++] = ent->d_name;
+    closedir(dir);
+#else
+    WIN32_FIND_DATA FindFileData;
+    HANDLE hFind = FindFirstFile(path, &FindFileData);
+    do {
+        if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            result[index++] = FindFileData.cFileName;
+    } while (FindNextFile(hFind, &FindFileData));
+    FindClose(hFind);
+#endif
+    if (count_out)
+        *count_out = count;
+    return result;
+}
+
+static void AssetWatchCallback(dmon_watch_id watch_id,
+                               dmon_action action,
+                               const char* rootdir,
+                               const char* filepath,
+                               const char* oldfilepath,
+                               void* user) {
+    if (DoesFileExist(GAMEKIT_ASSETS_PATH_OUT))
+        remove(GAMEKIT_ASSETS_PATH_OUT);
+
+    int count = 0;
+#if defined(GAMEKIT_POSIX)
+    char **files = GetFilesInDir(GAMEKIT_ASSETS_PATH_IN, &count);
+#else
+#define WINDOWS_ASSETS_SEARCH_PATH GAMEKIT_ASSETS_PATH_IN "/*"
+    char **files = GetFilesInDir(WINDOWS_ASSET_SEARCH_PATH, &count);
+#endif
+    assert(count);
+    ezContainerWrite(GAMEKIT_ASSETS_PATH_OUT, count, files);
+    free(files);
+}
+
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -1376,16 +1450,21 @@ static void InitCallback(void) {
     sgp_desc desc_sgp = (sgp_desc) {};
     sgp_setup(&desc_sgp);
     assert(sg_isvalid() && sgp_is_valid());
-    
+
+#if !defined(GAMEKIT_DISABLE_HOTRELOAD)
+    dmon_init();
+    dmon_watch(GAMEKIT_ASSETS_PATH_IN, AssetWatchCallback, DMON_WATCHFLAGS_IGNORE_DIRECTORIES, NULL);
+#endif
+
     state.textureMapCapacity = 1;
     state.textureMapCount = 0;
     state.textureMap = imap_ensure(NULL, 1);
-    state.assets = ezContainerRead(GAMEKIT_ASSETS_PATH);
+    state.assets = ezContainerRead(GAMEKIT_ASSETS_PATH_OUT);
     for (int i = 0; i < state.assets->sizeOfEntries; i++) {
         ezContainerTreeEntry *e = &state.assets->entries[i];
         const char *ext = FileExt(e->filePath);
         const char *extLower = ToLower(ext, 0);
-        
+
         for (int i = 0; i < VALID_EXTS_LEN; i++)
             if (!strncmp(VALID_IMAGE_EXTS[i], extLower, 3)) {
                 if (++state.textureMapCount > state.textureMapCapacity) {
@@ -1407,11 +1486,11 @@ static void InitCallback(void) {
         // TODO: Check other asset types
         free((void*)extLower);
     }
-    
+
     state.windowWidth = sapp_width();
     state.windowHeight = sapp_height();
     state.clearColor = (sg_color){0.39f, 0.58f, 0.92f, 1.f};
-    
+
 #if defined(GAMEKIT_MAC)
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
@@ -1426,7 +1505,7 @@ static void InitCallback(void) {
 #else
     state.timerFrequency = 1000000000L;
 #endif
-    
+
     state.updateMultiplicity = 1;
 #if defined(GAMEKIT_UNLOCKFRAME_RATE)
     state.unlockFramerate = 1;
@@ -1449,7 +1528,7 @@ static void InitCallback(void) {
     state.resync = true;
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
-    
+
     state.nextScene = NULL;
     gkSwapToScene(&state, GAMEKIT_FIRST_SCENE);
     assert(ReloadLibrary(state.nextScene));
@@ -1470,45 +1549,45 @@ static void FrameCallback(void) {
         sapp_toggle_fullscreen();
         state.fullscreenLast = state.fullscreen;
     }
-    
+
     if (state.cursorVisible != state.cursorVisibleLast) {
         sapp_show_mouse(state.cursorVisible);
         state.cursorVisibleLast = state.cursorVisible;
     }
-    
+
     if (state.cursorLocked != state.cursorLockedLast) {
         sapp_lock_mouse(state.cursorLocked);
         state.cursorLockedLast = state.cursorLocked;
     }
-    
+
     if (state.nextScene) {
         assert(ReloadLibrary(state.nextScene));
         state.nextScene = NULL;
     } else
-#if !defined(GAMEKIT_DISABLE_SCENE_RELOAD)
+#if !defined(GAMEKIT_DISABLE_HOTRELOAD)
         assert(ReloadLibrary(state.libraryPath));
 #endif
-    
+
     if (state.libraryScene->preframe) {
         state.libraryScene->preframe(&state, state.libraryContext);
         ProcessCommandQueue();
     }
-    
+
     int64_t current_frame_time = stm_now();
     int64_t delta_time = current_frame_time - state.prevFrameTime;
     state.prevFrameTime = current_frame_time;
-    
+
     if (delta_time > state.desiredFrameTime * 8)
         delta_time = state.desiredFrameTime;
     if (delta_time < 0)
         delta_time = 0;
-    
+
     for (int i = 0; i < 7; ++i)
         if (labs(delta_time - state.snapFrequencies[i]) < state.maxVsyncError) {
             delta_time = state.snapFrequencies[i];
             break;
         }
-    
+
     for (int i = 0; i < 3; ++i)
         state.timeAverager[i] = state.timeAverager[i + 1];
     state.timeAverager[3] = delta_time;
@@ -1516,20 +1595,20 @@ static void FrameCallback(void) {
     for (int i = 0; i < 4; ++i)
         delta_time += state.timeAverager[i];
     delta_time /= 4.f;
-    
+
     if ((state.frameAccumulator += delta_time) > state.desiredFrameTime * 8)
         state.resync = true;
-    
+
     if (state.resync) {
         state.frameAccumulator = 0;
         delta_time = state.desiredFrameTime;
         state.resync = false;
     }
-    
+
     double render_time = 1.0;
     if (state.unlockFramerate) {
         int64_t consumedDeltaTime = delta_time;
-        
+
         while (state.frameAccumulator >= state.desiredFrameTime) {
             if (state.libraryScene->fixedupdate)
                 state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
@@ -1540,7 +1619,7 @@ static void FrameCallback(void) {
             }
             state.frameAccumulator -= state.desiredFrameTime;
         }
-        
+
         if (state.libraryScene->update)
             state.libraryScene->update(&state, state.libraryContext, (double)consumedDeltaTime / state.timerFrequency);
         render_time = (double)state.frameAccumulator / state.desiredFrameTime;
@@ -1553,19 +1632,19 @@ static void FrameCallback(void) {
                     state.libraryScene->update(&state, state.libraryContext, state.fixedDeltaTime);
                 state.frameAccumulator -= state.desiredFrameTime;
             }
-    
+
     sgp_begin(state.windowWidth, state.windowHeight);
     if (state.libraryScene->frame)
         state.libraryScene->frame(&state, state.libraryContext, render_time);
     ProcessCommandQueue();
-    
+
     state.pass_action.colors[0].clear_value = state.clearColor;
     sg_begin_default_pass(&state.pass_action, state.windowWidth, state.windowHeight);
     sgp_flush();
     sgp_end();
     sg_end_pass();
     sg_commit();
-    
+
     if (state.libraryScene->postframe)
         state.libraryScene->postframe(&state, state.libraryContext);
 }
@@ -1588,6 +1667,9 @@ static void CleanupCallback(void) {
     ezContainerFree(state.assets);
     if (state.libraryScene->deinit)
         state.libraryScene->deinit(&state, state.libraryContext);
+#if !defined(GAMEKIT_DISABLE_HOTRELOAD)
+    dmon_deinit();
+#endif
     dlclose(state.libraryHandle);
     sg_shutdown();
 }
@@ -1599,7 +1681,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
 #else
     const char *configPath = ResolvePath(GAMEKIT_CONFIG_PATH);
 #endif
-    
+
     if (DoesFileExist(configPath)) {
         if (!LoadConfig(configPath)) {
             fprintf(stderr, "[IMPORT CONFIG ERROR] Failed to import config from \"%s\"\n", configPath);
@@ -1622,7 +1704,7 @@ sapp_desc sokol_main(int argc, char* argv[]) {
             abort();
         }
 #endif
-    
+
     state.desc.init_cb = InitCallback;
     state.desc.frame_cb = FrameCallback;
     state.desc.event_cb = EventCallback;

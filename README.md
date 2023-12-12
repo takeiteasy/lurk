@@ -5,7 +5,9 @@
 
 The _c-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games. The goal of the project is a high-level API, focused on development speed and ease. While performance is important for all applications (obviously), that is not the main aim for this project.
 
-To achieve this, the framework is built around hot-reloading; meaning code changes can be updated in real time - without having to rebuild and relaunch the entire game.
+To achieve this, the framework is built around hot-reloading; meaning code changes and asset modifications can be updated in real time - without having to rebuild and relaunch the entire game.
+
+This project was inspired by [raylib](https://github.com/raysan5/raylib), [XNA](https://en.wikipedia.org/wiki/Microsoft_XNA) and [SpriteKit](https://developer.apple.com/spritekit/).
 
 ## Preview
 
@@ -116,8 +118,6 @@ Run the executable in a second terminal (or run it forked). Now you can modify y
     - mjson.h
 - [tsoding/jim](https://github.com/tsoding/jim) (MIT)
     - jim.h
-- [win32ports/dirent_h](https://github.com/win32ports/dirent_h/) (MIT)
-    - dirent_win32.h
 - [billziss-gh/imap](https://github.com/billziss-gh/imap) (MIT)
     - imap.h
 - [nothings/stb](https://github.com/nothings/stb) (MIT/Public Domain)
@@ -128,6 +128,8 @@ Run the executable in a second terminal (or run it forked). Now you can modify y
 - [dlfcn-win32/dlfcn-win32](https://github.com/dlfcn-win32/dlfcn-win32) (MIT)
     - dlfcn_win32.h
     - dlfcn_win32.c
+- [septag/dmon](https://github.com/septag/dmon) (BSD-2-Clause)
+    - dmon.h
 
 ## References
 

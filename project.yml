@@ -35,6 +35,8 @@ targets:
         - sdk: Metal.framework
         - sdk: MetalKit.framework
         - sdk: Quartz.framework
+        - sdk: CoreServices.framework
+        - sdk: CoreFoundation.framework
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fobjc-arc, -fenable-matrix]

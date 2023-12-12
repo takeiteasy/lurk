@@ -71,20 +71,27 @@ typedef enum bool {
 #endif
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
 #include <string.h>
-#define _USE_MATH_DEFINES
-#include <math.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <setjmp.h>
 #include <errno.h>
 #include <assert.h>
 #if defined(GAMEKIT_MAC)
 #include <mach/mach_time.h>
+#endif
+    #if defined(GAMEKIT_POSIX)
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dlfcn.h>
+#else
+#include "dlfcn_win32.h"
+#ifndef _MSC_VER
+#pragma comment(lib, "Psapi.lib")
+#endif
 #endif
 
 #include "sokol_gfx.h"
@@ -138,7 +145,7 @@ typedef enum bool {
 #endif
 
 #if defined(GAMEKIT_RELEASE)
-#define GAMEKIT_DISABLE_SCENE_RELOAD
+#define GAMEKIT_DISABLE_HOTRELOAD
 #endif
 
 #if !defined(DEFAULT_TARGET_FPS)
@@ -187,7 +194,7 @@ typedef struct gkState {
     GameKit *libraryContext;
     gkScene *libraryScene;
     const char *nextScene;
-    
+
     imap_node_t *textureMap;
     int textureMapCapacity;
     int textureMapCount;
@@ -206,7 +213,7 @@ typedef struct gkState {
     bool resync;
     bool unlockFramerate;
     int updateMultiplicity;
-    
+
     bool running;
     bool mouseHidden;
     bool mouseLocked;
