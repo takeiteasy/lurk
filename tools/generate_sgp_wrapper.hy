@@ -1,8 +1,26 @@
 #!/usr/bin/env hy
 (import subprocess)
 (import json)
+(import argparse)
+(import sys [exit])
 
-(setv **wrap-funcs** (.split (.read (open "tools/sgp_funcs_list.txt"))))
+(setv **header-input** None
+      **list-input None)
+
+(let [parser (argparse.ArgumentParser :description "Wrap a library for c-gamekit"
+                                      :formatter-class argparse.ArgumentDefaultsHelpFormatter)]
+  (parser.add-argument "--header" :help "Path to header file")
+  (parser.add-argument "--list" :help "Path to list of functions to wrap")
+  (let [args (parser.parse-args)]
+    (if (or (not args.header)
+            (not args.list))
+        (do
+          (print parser)
+          (exit 1))
+        (setv **header-input** args.header
+              **list-input** args.list))))
+
+(setv **wrap-funcs** (.split (.read (open **list-input**))))
 
 (defmacro run-cmd [#* args]
   `(let [result (subprocess.run (list ~args) :stdout subprocess.PIPE)]
@@ -120,7 +138,7 @@
           (print f"EXPORT void gk{new-name}(gkState* state);"))))
   (blank-line))
 
-(let [tree (json.loads (run-cmd "c2ffi" "tools/sgp.h"))]
+(let [tree (json.loads (run-cmd "c2ffi" **header-input**))]
   (generate-header tree)
   (generate-enums tree)
   (print "typedef struct {")

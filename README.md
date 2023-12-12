@@ -130,6 +130,8 @@ Run the executable in a second terminal (or run it forked). Now you can modify y
     - dlfcn_win32.c
 - [septag/dmon](https://github.com/septag/dmon) (BSD-2-Clause)
     - dmon.h
+- [win32ports/dirent_h](https://github.com/win32ports/dirent_h) (MIT)
+    - dirent_win32.h
 
 ## References
 

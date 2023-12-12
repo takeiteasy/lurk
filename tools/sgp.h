@@ -1,2 +1,2 @@
-#include "../deps/sokol_gfx.h"
-#include "../deps/sokol_gp.h"
+#include "../gamekit/deps/sokol_gfx.h"
+#include "../gamekit/deps/sokol_gp.h"

@@ -50,4 +50,4 @@ targets:
             - "deps/"
     settings:
         HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fno-objc-arc, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_STATE]

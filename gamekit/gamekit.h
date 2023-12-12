@@ -28,6 +28,7 @@ extern "C" {
 #if defined(__EMSCRIPTEN__) || defined(EMSCRIPTEN)
 #include <emscripten.h>
 #define GAMEKIT_EMSCRIPTEN
+#define GAMEKIT_DISABLE_HOTRELOAD
 #endif
 
 #define GAMEKIT_POSIX

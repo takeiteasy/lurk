@@ -33,6 +33,9 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include "gamekit.h"
 #pragma clang diagnostic pop
+#if defined(GAMEKIT_WINDOW)
+#include "dirent_win32.h"
+#endif
 
 #if !defined(GAMEKIT_STATE)
 static gkTexture* NewTexture(sg_image_desc *desc) {
@@ -1372,28 +1375,23 @@ static const char* ToLower(const char *str, int length) {
 
 static bool IsFile(const char *path) {
     struct stat st;
-    return stat(path, &st) != -1 && S_ISREG(st.st_mode);
+    assert(stat(path, &st) != -1);
+    return S_ISREG(st.st_mode);
 }
 
 static int CountFilesInDir(const char *path) {
     int result = 0;
-#if defined(GAMEKIT_POSIX)
+    char full[MAX_PATH];
     DIR *dir = opendir(path);
     assert(dir);
     struct dirent *ent;
-    while ((ent = readdir(dir)))
-        if (IsFile(ent->d_name))
+    while ((ent = readdir(dir))) {
+        sprintf(full, "%s%s", path, ent->d_name);
+        if (IsFile(full))
             result++;
+        full[0] = '\0';
+    }
     closedir(dir);
-#else
-    WIN32_FIND_DATA FindFileData;
-    HANDLE hFind = FindFirstFile(path, &FindFileData);
-    do {
-        if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-            result++;
-    } while (FindNextFile(hFind, &FindFileData));
-    FindClose(hFind);
-#endif
     return result;
 }
 
@@ -1401,25 +1399,21 @@ static const char** GetFilesInDir(const char *path, int *count_out) {
     int count = CountFilesInDir(path);
     const char** result = malloc(sizeof(char*) * count);
     int index = 0;
-#if defined(GAMEKIT_POSIX)
+    char full[MAX_PATH];
     DIR *dir = opendir(path);
     assert(dir);
     struct dirent *ent;
-    while ((ent = readdir(dir)))
-        if (IsFile(ent->d_name))
+    while ((ent = readdir(dir))) {
+        sprintf(full, "%s%s", path, ent->d_name);
+        if (IsFile(full))
             result[index++] = ent->d_name;
+        full[0] = '\0';
+    }
     closedir(dir);
-#else
-    WIN32_FIND_DATA FindFileData;
-    HANDLE hFind = FindFirstFile(path, &FindFileData);
-    do {
-        if (!(FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-            result[index++] = FindFileData.cFileName;
-    } while (FindNextFile(hFind, &FindFileData));
-    FindClose(hFind);
-#endif
     if (count_out)
         *count_out = count;
+    for (int i = 0; i < count; i++)
+        printf("%s\n", result[i]);
     return result;
 }
 
@@ -1429,15 +1423,31 @@ static void AssetWatchCallback(dmon_watch_id watch_id,
                                const char* filepath,
                                const char* oldfilepath,
                                void* user) {
-    if (DoesFileExist(GAMEKIT_ASSETS_PATH_OUT))
-        remove(GAMEKIT_ASSETS_PATH_OUT);
-
+//    if (DoesFileExist(GAMEKIT_ASSETS_PATH_OUT))
+//        remove(GAMEKIT_ASSETS_PATH_OUT);
+    
+    // TODO: Check if file exists inside map
+    // TODO: Compare file hashes
+    
+    switch (action) {
+        case DMON_ACTION_CREATE:
+            break;
+        case DMON_ACTION_DELETE:
+            break;
+        case DMON_ACTION_MODIFY:
+            break;
+        case DMON_ACTION_MOVE:
+            break;
+    }
+    return;
+    
     int count = 0;
 #if defined(GAMEKIT_POSIX)
-    const char **files = GetFilesInDir(GAMEKIT_ASSETS_PATH_IN, &count);
+    const char **files = GetFilesInDir(rootdir, &count);
 #else
-#define WINDOWS_ASSETS_SEARCH_PATH GAMEKIT_ASSETS_PATH_IN "/*"
-    const char **files = GetFilesInDir(WINDOWS_ASSET_SEARCH_PATH, &count);
+    char appended[MAX_PATH];
+    memcpy(appended, rootdir, strlen(rootdir) * sizeof(char));
+    const char **files = GetFilesInDir(appended, &count);
 #endif
     assert(count);
     ezContainerWrite(GAMEKIT_ASSETS_PATH_OUT, count, files);
@@ -1457,7 +1467,7 @@ static void InitCallback(void) {
 
 #if !defined(GAMEKIT_DISABLE_HOTRELOAD)
     dmon_init();
-    dmon_watch(GAMEKIT_ASSETS_PATH_IN, AssetWatchCallback, DMON_WATCHFLAGS_IGNORE_DIRECTORIES, NULL);
+//    dmon_watch(GAMEKIT_ASSETS_PATH_IN, AssetWatchCallback, DMON_WATCHFLAGS_IGNORE_DIRECTORIES, NULL);
 #endif
 
     state.textureMapCapacity = 1;
