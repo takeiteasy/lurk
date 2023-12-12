@@ -2,12 +2,20 @@
 
 struct GameKit {
     uint64_t test_a;
-    uint64_t test_b;
+    gkEntity test_b;
+    gkEntity test_c;
 };
+
+typedef struct {
+    int dummy;
+} TestComponent;
 
 static GameKit* init(gkState* state) {
     GameKit *result = malloc(sizeof(struct GameKit));
     result->test_a = gkFindTexture(state, "test2.png");
+    result->test_b = gkNewEntity(state);
+    result->test_c = GK_COMPONENT(state, TestComponent);
+    gkAttach(state, result->test_b, result->test_c);
     return result;
 }
 
@@ -36,7 +44,9 @@ static void frame(gkState* state, GameKit *scene, float delta) {
     gkSetColor(state, 1.f, 0.f, 0.f, 1.f);
     gkClear(state);
 
-    gkSetColor(state, 0.f, 0.f, 1.f, 1.f);
+    assert(gkHas(state, scene->test_b, scene->test_c));
+
+    gkSetColor(state, 0.f, 0.f, 0.f, 1.f);
     gkDrawFilledRect(state, -.5f, -.5f, 1.f, 1.f);
 }
 

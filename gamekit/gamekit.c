@@ -1,7 +1,9 @@
 /* gamekit.c -- https://github.com/takeiteasy/c-gamekit
 
  The MIT License (MIT)
+
  Copyright (c) 2022 George Watson
+
  Permission is hereby granted, free of charge, to any person
  obtaining a copy of this software and associated documentation
  files (the "Software"), to deal in the Software without restriction,
@@ -9,8 +11,10 @@
  publish, distribute, sublicense, and/or sell copies of the Software,
  and to permit persons to whom the Software is furnished to do so,
  subject to the following conditions:
+
  The above copyright notice and this permission notice shall be
  included in all copies or substantial portions of the Software.
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -37,7 +41,7 @@
 #include "dirent_win32.h"
 #endif
 
-#if !defined(GAMEKIT_STATE)
+#if !defined(GAMEKIT_SCENE)
 static gkTexture* NewTexture(sg_image_desc *desc) {
     gkTexture *result = malloc(sizeof(gkTexture));
     result->internal = sg_make_image(desc);
@@ -815,7 +819,7 @@ void gkCreateTexture(gkState *state, const char *name, ezImage *image) {
     PushCommand(state, cmd);
 }
 
-#if !defined(GAMEKIT_STATE)
+#if !defined(GAMEKIT_SCENE)
 static void FreeCommand(gkCommand* command) {
     gkCommandType type = command->type;
     switch
@@ -1200,7 +1204,7 @@ bool gkHasRelation(gkState* state, ezEntity entity, ezEntity object) {
 }
 
 bool gkRelated(gkState* state, ezEntity entity, ezEntity relation) {
-    return ezEcsRekated(state->world, entity, relation);
+    return ezEcsRelated(state->world, entity, relation);
 }
 
 void* gkGet(gkState* state, ezEntity entity, ezEntity component) {
@@ -1215,7 +1219,7 @@ void gkRelations(gkState* state, ezEntity entity, ezEntity relation, ezSystemCb 
     ezEcsRelations(state->world, entity, relation, cb);
 }
 
-#if !defined(GAMEKIT_STATE)
+#if !defined(GAMEKIT_SCENE)
 static bool ReloadLibrary(const char *path) {
 #if defined(GAMEKIT_DISABLE_HOTRELOAD)
     return true;
@@ -1595,6 +1599,8 @@ static void InitCallback(void) {
     state.prevFrameTime = stm_now();
     state.frameAccumulator = 0;
 
+    state.world = ezEcsNewWorld();
+
     state.nextScene = NULL;
     gkSwapToScene(&state, GAMEKIT_FIRST_SCENE);
     assert(ReloadLibrary(state.nextScene));
@@ -1608,6 +1614,22 @@ static void ProcessCommandQueue(void) {
         ezStackEntry *head = ezStackShift(&state.commandQueue);
         free(head);
     }
+}
+
+static void CallFixedUpdate(void) {
+    if (state.libraryScene->fixedupdate)
+        state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
+#if !defined(GAMEKIT_ECS_VARIABLE_TICK)
+    ezEcsStep(state.world);
+#endif
+}
+
+static void CallVarUpdate(float delta) {
+    if (state.libraryScene->update)
+        state.libraryScene->update(&state, state.libraryContext, delta);
+#if defined(GAMEKIT_ECS_VARIABLE_TICK)
+    ezEcsStep(state.world);
+#endif
 }
 
 static void FrameCallback(void) {
@@ -1676,26 +1698,21 @@ static void FrameCallback(void) {
         int64_t consumedDeltaTime = delta_time;
 
         while (state.frameAccumulator >= state.desiredFrameTime) {
-            if (state.libraryScene->fixedupdate)
-                state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
+            CallFixedUpdate();
             if (consumedDeltaTime > state.desiredFrameTime) {
-                if (state.libraryScene->update)
-                    state.libraryScene->update(&state, state.libraryContext, state.fixedDeltaTime);
+                CallVarUpdate(state.fixedDeltaTime);
                 consumedDeltaTime -= state.desiredFrameTime;
             }
             state.frameAccumulator -= state.desiredFrameTime;
         }
 
-        if (state.libraryScene->update)
-            state.libraryScene->update(&state, state.libraryContext, (double)consumedDeltaTime / state.timerFrequency);
+        CallVarUpdate((double)consumedDeltaTime / state.timerFrequency);
         render_time = (double)state.frameAccumulator / state.desiredFrameTime;
     } else
         while (state.frameAccumulator >= state.desiredFrameTime*state.updateMultiplicity)
             for (int i = 0; i < state.updateMultiplicity; ++i) {
-                if (state.libraryScene->fixedupdate)
-                    state.libraryScene->fixedupdate(&state, state.libraryContext, state.fixedDeltaTime);
-                if (state.libraryScene->update)
-                    state.libraryScene->update(&state, state.libraryContext, state.fixedDeltaTime);
+                CallFixedUpdate();
+                CallVarUpdate(state.fixedDeltaTime);
                 state.frameAccumulator -= state.desiredFrameTime;
             }
 
@@ -1733,6 +1750,7 @@ static void CleanupCallback(void) {
     ezContainerFree(state.assets);
     if (state.libraryScene->deinit)
         state.libraryScene->deinit(&state, state.libraryContext);
+    ezEcsFreeWorld(&state.world);
 #if !defined(GAMEKIT_DISABLE_HOTRELOAD)
     dmon_deinit();
 #endif

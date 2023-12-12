@@ -29,7 +29,7 @@ This project was inspired by [raylib](https://github.com/raysan5/raylib), [XNA](
   - [ ] Joystick support
   - [ ] Input mapping
 - [ ] UI (wrapped over cimgui or nuklear)
-- [ ] Integrated ECS (ezecs.h)
+- [X] Integrated ECS (ezecs.h)
 - [ ] Rigid-body physics (contained inside ECS)
 - [ ] Animations+Events (Inspired by Apple's SpriteKit `SKAction`)
 - [ ] Assets

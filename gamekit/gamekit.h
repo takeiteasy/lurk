@@ -1,7 +1,9 @@
 /* gamekit.h -- https://github.com/takeiteasy/c-gamekit
 
  The MIT License (MIT)
+
  Copyright (c) 2022 George Watson
+
  Permission is hereby granted, free of charge, to any person
  obtaining a copy of this software and associated documentation
  files (the "Software"), to deal in the Software without restriction,
@@ -9,8 +11,10 @@
  publish, distribute, sublicense, and/or sell copies of the Software,
  and to permit persons to whom the Software is furnished to do so,
  subject to the following conditions:
+
  The above copyright notice and this permission notice shall be
  included in all copies or substantial portions of the Software.
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -99,7 +103,7 @@ typedef enum bool {
 #include "sokol_gfx.h"
 #include "sokol_app.h"
 #include "sokol_glue.h"
-#if defined(GAMEKIT_STATE) && defined(SOKOL_IMPL)
+#if defined(GAMEKIT_SCENE) && defined(SOKOL_IMPL)
 #undef SOKOL_IMPL
 #endif
 #include "sokol_args.h"
@@ -120,6 +124,7 @@ typedef enum bool {
 #include "ez/ezfs.h"
 #include "ez/ezcontainer.h"
 #include "ez/ezstack.h"
+#include "ez/ezecs.h"
 
 #include "config.h"
 
@@ -225,8 +230,9 @@ typedef struct gkState {
     bool cursorLocked, cursorLockedLast;
     int windowWidth, windowHeight;
     sapp_desc desc;
-
     sg_pass_action pass_action;
+
+    ezWorld *world;
 } gkState;
 
 struct gkScene {
