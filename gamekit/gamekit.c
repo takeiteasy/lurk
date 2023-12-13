@@ -1728,21 +1728,56 @@ static void FrameCallback(void) {
     sg_end_pass();
     sg_commit();
 
+    state.modifiers = 0;
+    state.mouse.scroll.x = 0.f;
+    state.mouse.scroll.y = 0.f;
+
     if (state.libraryScene->postframe)
         state.libraryScene->postframe(&state, state.libraryContext);
 }
 
 static void EventCallback(const sapp_event* e) {
     switch (e->type) {
-        case SAPP_EVENTTYPE_RESIZED:
-            state.windowWidth = e->window_width;
-            state.windowHeight = e->window_height;
-            break;
-        default:
-            break;
+    case SAPP_EVENTTYPE_KEY_DOWN:
+    case SAPP_EVENTTYPE_KEY_UP:
+        state.keyboard[e->key_code].down = e->type == SAPP_EVENTTYPE_KEY_DOWN;
+        state.keyboard[e->key_code].timestamp = stm_now();
+        state.modifiers = e->modifiers;
+        return;
+    case SAPP_EVENTTYPE_MOUSE_DOWN:
+    case SAPP_EVENTTYPE_MOUSE_UP:
+        state.mouse.buttons[e->mouse_button].down = e->type == SAPP_EVENTTYPE_MOUSE_DOWN;
+        state.mouse.buttons[e->mouse_button].timestamp = stm_now();
+        state.modifiers = e->modifiers;
+        return;
+    case SAPP_EVENTTYPE_MOUSE_SCROLL:
+        state.mouse.scroll.x = e->scroll_x;
+        state.mouse.scroll.y = e->scroll_y;
+        return;
+    case SAPP_EVENTTYPE_MOUSE_MOVE:
+        memcpy(&state.mouse.lastPosition, &state.mouse.position, 2 * sizeof(int));
+        state.mouse.position.x = e->mouse_x;
+        state.mouse.position.y = e->mouse_y;
+        return;
+    case SAPP_EVENTTYPE_CLIPBOARD_PASTED: {
+        state.clipboard[0] = '\0';
+        const char *buffer = sapp_get_clipboard_string();
+        memcpy(state.clipboard, buffer, strlen(buffer) * sizeof(char));
+        break;
+    }
+    case SAPP_EVENTTYPE_FILES_DROPPED:
+        state.droppedCount = sapp_get_num_dropped_files();
+        for (int i = 0; i < state.droppedCount; i++)
+            state.dropped[i] = sapp_get_dropped_file_path(i);
+        break;
+    case SAPP_EVENTTYPE_RESIZED:
+        state.windowWidth = e->window_width;
+        state.windowHeight = e->window_height;
+    default:
+        break;
     }
     if (state.libraryScene->event)
-        state.libraryScene->event(&state, state.libraryContext, e);
+        state.libraryScene->event(&state, state.libraryContext, e->type);
 }
 
 static void CleanupCallback(void) {
@@ -1818,12 +1853,11 @@ void gkSwapToScene(gkState *state, const char *name) {
     }
 }
 
-int gkWindowWidth(gkState *state) {
-    return state->windowWidth;
-}
-
-int gkWindowHeight(gkState *state) {
-    return state->windowHeight;
+void gkWindowSize(gkState *state, int *width, int *height) {
+    if (width)
+        *width = state->windowWidth;
+    if (height)
+        *height = state->windowHeight;
 }
 
 int gkIsWindowFullscreen(gkState *state) {
@@ -1853,4 +1887,64 @@ void gkToggleCursorLock(gkState *state) {
 uint64_t gkFindTexture(gkState *state, const char *name) {
     uint64_t hash = MurmurHash((void*)name, strlen(name), 0);
     return imap_lookup(state->textureMap, hash) ? hash : -1L;
+}
+
+bool gkIsKeyDown(gkState *state, sapp_keycode key) {
+    assert(key >= SAPP_KEYCODE_SPACE && key <= SAPP_KEYCODE_MENU);
+    return state->keyboard[key].down;
+}
+
+bool gkAreAllKeysDown(gkState *state, int count, ...) {
+    va_list args;
+    va_start(args, count);
+    for (int i = 0; i < count; i++)
+        if (!state->keyboard[va_arg(args, int)].down)
+            return false;
+    return true;
+}
+
+bool gkAreAnyKeysDown(gkState *state, int count, ...) {
+    va_list args;
+    va_start(args, count);
+    for (int i = 0; i < count; i++)
+        if (!state->keyboard[va_arg(args, int)].down)
+            return true;
+    return false;
+}
+
+bool gkIsMouseButtonDown(gkState *state, sapp_mousebutton button) {
+    assert(button == SAPP_MOUSEBUTTON_LEFT ||
+           button == SAPP_MOUSEBUTTON_RIGHT ||
+           button == SAPP_MOUSEBUTTON_MIDDLE);
+    return state->mouse.buttons[button].down;
+}
+
+void gkMousePosition(gkState *state, int* x, int* y) {
+    if (x)
+        *x = state->mouse.position.x;
+    if (y)
+        *y = state->mouse.position.y;
+}
+
+void gkMouseDelta(gkState *state, int *dx, int *dy) {
+    if (dx)
+        *dx = state->mouse.position.x - state->mouse.lastPosition.x;
+    if (dy)
+        *dy = state->mouse.position.y - state->mouse.lastPosition.y;
+}
+
+void gkMouseScroll(gkState *state, float *dx, float *dy) {
+    if (dx)
+        *dx = state->mouse.scroll.x;
+    if (dy)
+        *dy = state->mouse.scroll.y;
+}
+
+bool gkTestKeyboardModifiers(gkState *state, int count, ...) {
+    va_list args;
+    va_start(args, count);
+    for (int i = 0; i < count; i++)
+        if (!(state->modifiers & va_arg(args, int)))
+            return false;
+    return true;
 }

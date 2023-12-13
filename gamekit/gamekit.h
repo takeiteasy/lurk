@@ -128,6 +128,12 @@ typedef enum bool {
 
 #include "config.h"
 
+// Taken from: https://gist.github.com/61131/7a22ac46062ee292c2c8bd6d883d28de
+#define N_ARGS(...) _NARG_(__VA_ARGS__, _RSEQ())
+#define _NARG_(...) _SEQ(__VA_ARGS__)
+#define _SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,_51,_52,_53,_54,_55,_56,_57,_58,_59,_60,_61,_62,_63,_64,_65,_66,_67,_68,_69,_70,_71,_72,_73,_74,_75,_76,_77,_78,_79,_80,_81,_82,_83,_84,_85,_86,_87,_88,_89,_90,_91,_92,_93,_94,_95,_96,_97,_98,_99,_100,_101,_102,_103,_104,_105,_106,_107,_108,_109,_110,_111,_112,_113,_114,_115,_116,_117,_118,_119,_120,_121,_122,_123,_124,_125,_126,_127,N,...) N
+#define _RSEQ() 127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
+
 #if !defined(DEFAULT_CONFIG_NAME)
 #if defined(GAMEKIT_POSIX)
 #define DEFAULT_CONFIG_NAME ".gamekit.json"
@@ -173,6 +179,28 @@ typedef enum bool {
     X("drapAndDrop", boolean, enable_dragndrop, false, "Enable drag-and-drop files")             \
     X("maxDroppedFiles", integer, max_dropped_files, 1, "Max number of dropped files")           \
     X("maxDroppedFilesPathLength", integer, max_dropped_file_path_length, MAX_PATH, "Max path length for dropped files")
+
+#define GK_CLIPBOARD_PASTED SAPP_EVENTTYPE_CLIPBOARD_PASTED
+#define GK_WINDOW_FILES_DROPPED SAPP_EVENTTYPE_FILES_DROPPED
+#define GK_WINDOW_MOUSE_ENTER SAPP_EVENTTYPE_MOUSE_ENTER
+#define GK_WINDOW_MOUSE_LEAVE SAPP_EVENTTYPE_MOUSE_LEAVE
+#define GK_WINDOW_RESIZED SAPP_EVENTTYPE_RESIZED
+#define GK_WINDOW_ICONIFIED SAPP_EVENTTYPE_ICONIFIED
+#define GK_WINDOW_RESTORED SAPP_EVENTTYPE_RESTORED
+#define GK_WINDOW_FOCUSED SAPP_EVENTTYPE_FOCUSED
+#define GK_WINDOW_UNFOCUSED SAPP_EVENTTYPE_UNFOCUSED
+#define GK_WINDOW_SUSPENDED SAPP_EVENTTYPE_SUSPENDED
+#define GK_WINDOW_RESUMED SAPP_EVENTTYPE_RESUMED
+#define GK_WINDOW_QUIT_REQUESTED SAPP_EVENTTYPE_QUIT_REQUESTED
+typedef sapp_event_type gkEventType;
+
+#if !defined(GAMEKIT_MAX_DROPPED_FILES)
+#define GAMEKIT_MAX_DROPPED_FILES 1 // sapp default
+#endif
+
+#if !defined(GAMEKIT_CLIPBOARD_SIZE)
+#define GAMEKIT_CLIPBOARD_SIZE 8192 // sapp default
+#endif
 
 typedef struct gkVertex {
     Vec2f position, texcoord;
@@ -233,6 +261,27 @@ typedef struct gkState {
     sg_pass_action pass_action;
 
     ezWorld *world;
+
+    struct {
+        bool down;
+        uint64_t timestamp;
+    } keyboard[SAPP_MAX_KEYCODES];
+    struct {
+        struct {
+            bool down;
+            uint64_t timestamp;
+        } buttons[3]; // left, right, middle
+        struct {
+            int x, y;
+        } position, lastPosition;
+        struct {
+            float x, y;
+        } scroll;
+    } mouse;
+    uint32_t modifiers;
+    const char *dropped[GAMEKIT_MAX_DROPPED_FILES];
+    int droppedCount;
+    char clipboard[GAMEKIT_CLIPBOARD_SIZE];
 } gkState;
 
 struct gkScene {
@@ -240,7 +289,7 @@ struct gkScene {
     void (*deinit)(gkState*, GameKit*);
     void (*reload)(gkState*, GameKit*);
     void (*unload)(gkState*, GameKit*);
-    void (*event)(gkState*, GameKit*, const sapp_event*);
+    void (*event)(gkState*, GameKit*, gkEventType);
     void (*preframe)(gkState*, GameKit*);
     bool (*update)(gkState*, GameKit*, float);
     bool (*fixedupdate)(gkState*, GameKit*, float);
@@ -250,14 +299,25 @@ struct gkScene {
 
 EXPORT void gkSwapToScene(gkState *state, const char *name);
 
-EXPORT int gkWindowWidth(gkState *state);
-EXPORT int gkWindowHeight(gkState *state);
+EXPORT void gkWindowSize(gkState *state, int* width, int* height);
 EXPORT int gkIsWindowFullscreen(gkState *state);
 EXPORT void gkToggleFullscreen(gkState *state);
 EXPORT int gkIsCursorVisible(gkState *state);
 EXPORT void gkToggleCursorVisible(gkState *state);
 EXPORT int gkIsCursorLocked(gkState *state);
 EXPORT void gkToggleCursorLock(gkState *state);
+
+EXPORT bool gkIsKeyDown(gkState *state, sapp_keycode key);
+#define GK_ALL_KEYS(STATE, ...) (gkAreAllKeysDown((STATE),  N_ARGS(__VA_ARGS__), __VA_ARGS__))
+#define GK_ANY_KEYS(STATE, ...) (gkAreAnyKeysDown((STATE),  N_ARGS(__VA_ARGS__), __VA_ARGS__))
+EXPORT bool gkAreAllKeysDown(gkState *state, int count, ...);
+EXPORT bool gkAreAnyKeysDown(gkState *state, int count, ...);
+EXPORT bool gkIsMouseButtonDown(gkState *state, sapp_mousebutton button);
+EXPORT void gkMousePosition(gkState *state, int* x, int* y);
+EXPORT void gkMouseDelta(gkState *state, int *dx, int *dy);
+EXPORT void gkMouseScroll(gkState *state, float *dx, float *dy);
+#define GK_TEST_MODIFIER(STATE, ...) (gkAnyKeysDown((STATE),  N_ARGS(__VA_ARGS__), __VA_ARGS__))
+EXPORT bool gkTestKeyboardModifiers(gkState *state, int count, ...);
 
 EXPORT uint64_t gkFindTexture(gkState *state, const char *name);
 EXPORT void gkCreateTexture(gkState *state, const char *name, ezImage *image);
@@ -313,12 +373,6 @@ typedef ezRelation gkRelation;
 #define GK_COMPARE_ENTITIES(A, B) ((A).id == (B).id)
 #define GK_ECS_NIL ezEcsNil
 #define GK_ECS_NIL_ENTITY ezEcsNilEntity
-
-// Taken from: https://gist.github.com/61131/7a22ac46062ee292c2c8bd6d883d28de
-#define N_ARGS(...) _NARG_(__VA_ARGS__, _RSEQ())
-#define _NARG_(...) _SEQ(__VA_ARGS__)
-#define _SEQ(_1, _2, _3, _4, _5, _6, _7, _8, _9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,_51,_52,_53,_54,_55,_56,_57,_58,_59,_60,_61,_62,_63,_64,_65,_66,_67,_68,_69,_70,_71,_72,_73,_74,_75,_76,_77,_78,_79,_80,_81,_82,_83,_84,_85,_86,_87,_88,_89,_90,_91,_92,_93,_94,_95,_96,_97,_98,_99,_100,_101,_102,_103,_104,_105,_106,_107,_108,_109,_110,_111,_112,_113,_114,_115,_116,_117,_118,_119,_120,_121,_122,_123,_124,_125,_126,_127,N,...) N
-#define _RSEQ() 127,126,125,124,123,122,121,120,119,118,117,116,115,114,113,112,111,110,109,108,107,106,105,104,103,102,101,100,99,98,97,96,95,94,93,92,91,90,89,88,87,86,85,84,83,82,81,80,79,78,77,76,75,74,73,72,71,70,69,68,67,66,65,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0
 
 #define GK_NORMAL_TYPE ezEcsNormalType
 #define GK_COMPONENT_TYPE ezEcsComponentType

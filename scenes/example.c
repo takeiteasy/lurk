@@ -25,20 +25,20 @@ static void deinit(gkState *state, GameKit *scene) {
 }
 
 /* INFO:
-   `reload` is called when the scene has been reloaded (pre) due to modifications */
+   `reload` is called when the scene has been reloaded (post) due to modifications */
 static void reload(gkState *state, GameKit *scene) {
     printf("Scene has been reloaded\n");
 }
 
 /* INFO:
-   `unload` is called when the scene has been reloaded (post) due to modifications */
+   `unload` is called when the scene has been reloaded (pre) due to modifications */
 static void unload(gkState *state, GameKit *scene) {
     printf("Scene has been unloaded!\n");
 }
 
 /* INFO:
    `event` is called when a window event is generated */
-static void event(gkState *state, GameKit *scene, const sapp_event *e) {
+static void event(gkState *state, GameKit *scene, gkEventType event) {
     printf("Wow! Some sort of event!\n");
 }
 
