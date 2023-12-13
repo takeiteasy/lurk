@@ -30,6 +30,8 @@ targets:
             - "deps/"
         - path: gamekit/deps/
           type: folder
+        - path: gamekit/deps/gamepad/Gamepad_private.c
+        - path: gamekit/deps/gamepad/Gamepad_macosx.c
     dependencies:
         - sdk: Cocoa.framework
         - sdk: Metal.framework
@@ -37,6 +39,7 @@ targets:
         - sdk: Quartz.framework
         - sdk: CoreServices.framework
         - sdk: CoreFoundation.framework
+        - sdk: IOKit.framework
     settings:
         HEADER_:SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fno-objc-arc, -fenable-matrix]

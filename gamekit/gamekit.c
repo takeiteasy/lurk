@@ -1510,6 +1510,21 @@ static void AssetWatchCallback(dmon_watch_id watch_id,
     free(files);
 }
 
+static void GamepadButtonDown(struct Gamepad_device* device, unsigned int buttonID, double timestamp, void* context) {
+}
+
+static void GamepadButtonUp(struct Gamepad_device* device, unsigned int buttonID, double timestamp, void* context) {
+}
+
+static void GamepadAxisMoved(struct Gamepad_device* device, unsigned int axisID, float value, float lastValue, double timestamp, void* context) {
+}
+
+static void GamepadDeviceAttached(struct Gamepad_device* device, void* context) {
+}
+
+static void GamepadDeviceRemoved(struct Gamepad_device* device, void* context) {
+}
+
 static void InitCallback(void) {
     sg_desc desc = (sg_desc) {
         // TODO: Add more configuration options for sg_desc
@@ -1520,11 +1535,16 @@ static void InitCallback(void) {
     sgp_desc desc_sgp = (sgp_desc) {};
     sgp_setup(&desc_sgp);
     assert(sg_isvalid() && sgp_is_valid());
-
 #if !defined(GAMEKIT_DISABLE_HOTRELOAD)
     dmon_init();
 //    dmon_watch(GAMEKIT_ASSETS_PATH_IN, AssetWatchCallback, DMON_WATCHFLAGS_IGNORE_DIRECTORIES, NULL);
 #endif
+    Gamepad_deviceAttachFunc(GamepadDeviceAttached, NULL);
+	Gamepad_deviceRemoveFunc(GamepadDeviceRemoved, NULL);
+	Gamepad_buttonDownFunc(GamepadButtonDown, NULL);
+	Gamepad_buttonUpFunc(GamepadButtonUp, NULL);
+	Gamepad_axisMoveFunc(GamepadAxisMoved, NULL);
+	Gamepad_init();
 
     state.textureMapCapacity = 1;
     state.textureMapCount = 0;

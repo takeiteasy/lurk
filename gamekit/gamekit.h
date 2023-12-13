@@ -125,6 +125,7 @@ typedef enum bool {
 #include "ez/ezcontainer.h"
 #include "ez/ezstack.h"
 #include "ez/ezecs.h"
+#include "gamepad/Gamepad.h"
 
 #include "config.h"
 

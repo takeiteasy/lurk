@@ -26,7 +26,7 @@ This project was inspired by [raylib](https://github.com/raysan5/raylib), [XNA](
 - [ ] Audio loading+playback (wrapped over sokol_audio or miniaudio)
 - [ ] Font loading+rendering
 - [ ] Input handling
-  - [ ] Joystick support
+  - [X] Joystick support
   - [ ] Input mapping
 - [ ] UI (wrapped over cimgui or nuklear)
 - [X] Integrated ECS (ezecs.h)
@@ -132,6 +132,14 @@ Run the executable in a second terminal (or run it forked). Now you can modify y
     - dmon.h
 - [win32ports/dirent_h](https://github.com/win32ports/dirent_h) (MIT)
     - dirent_win32.h
+- [ThemsAllTook/libstem_gamepad](https://github.com/ThemsAllTook/libstem_gamepad) (zlib/libpng)
+    - Gamepad.h
+    - Gamepad_macosx.c
+    - Gamepad_private.h
+    - Gamepad_windows_mm.c
+    - Gamepad_linux.c
+    - Gamepad_private.c
+    - Gamepad_windows_dinput.c
 
 ## References
 
