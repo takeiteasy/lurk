@@ -1,9 +1,9 @@
-# c-gamekit
+# ez-gamekit
 
 > [!WARNING]
 > Work in progress
 
-The _c-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games. The goal of the project is a high-level API, focused on development speed and ease. While performance is important for all applications (obviously), that is not the main aim for this project.
+The _ez-gamekit_ is a 2D game framework designed for the rapid development and prototyping of games. The goal of the project is a high-level API, focused on development speed and ease. While performance is important for all applications (obviously), that is not the main aim for this project.
 
 To achieve this, the framework is built around hot-reloading; meaning code changes and asset modifications can be updated in real time - without having to rebuild and relaunch the entire game.
 
@@ -70,7 +70,7 @@ The layout of the project is very simple.
 
 You are likely only interested in the `scenes` folder. This is where your project and its assets will live. **NOTE**: The name of this folder can be easily changed by modifying the Makefile. Your projects assets will live in ```scenes/assets/```. When you build your project your assets will be packaged into an archive automatically.
 
-Now you will want to create a `scene`. Scenes are all seperate .c files and are all built into dynamic libraries which are loaded and reloaded at runtime. This is how the live coding is acheived.[†](https://github.com/takeiteasy/c-gamekit#References) Check out ```scenes/example.c``` for a boilerplate example. **NOTE**: Scenes must be added to ```GAMEKIT_SCENES``` macro inside ```config.h```.
+Now you will want to create a `scene`. Scenes are all seperate .c files and are all built into dynamic libraries which are loaded and reloaded at runtime. This is how the live coding is acheived.[†](https://github.com/takeiteasy/ez-gamekit#References) Check out ```scenes/example.c``` for a boilerplate example. **NOTE**: Scenes must be added to ```GAMEKIT_SCENES``` macro inside ```config.h```.
 
 Scenes have a number of optional callback/events:
 
@@ -174,5 +174,4 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 ```
