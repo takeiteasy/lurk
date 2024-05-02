@@ -362,7 +362,7 @@ EXPORT void lurkDrawTexturedRects(lurkState* state, int channel, sgp_textured_re
 EXPORT void lurkDrawTexturedRect(lurkState* state, int channel, sgp_rect dest_rect, sgp_rect src_rect);
 
 typedef ezEntity lurkEntity;
-typedef ezView lurkView;
+typedef ezQuery lurkQuery;
 typedef ezSystemCb lurkSystemCb;
 typedef ezSystem lurkSystem;
 typedef ezPrefab lurkPrefab;

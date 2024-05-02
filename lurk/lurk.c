@@ -1216,7 +1216,7 @@ void lurkSet(lurkState* state, ezEntity entity, ezEntity component, void* data) 
 }
 
 void lurkRelations(lurkState* state, ezEntity entity, ezEntity relation, ezSystemCb cb) {
-    ezEcsRelations(state->world, entity, relation, cb);
+    ezEcsRelations(state->world, entity, relation, cb, NULL);
 }
 
 #if !defined(LURK_SCENE)
