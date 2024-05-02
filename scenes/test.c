@@ -1,56 +1,56 @@
-#include "gamekit.h"
+#include "lurk.h"
 
-struct GameKit {
+struct lurkContext {
     uint64_t test_a;
-    gkEntity test_b;
-    gkEntity test_c;
+    lurkEntity test_b;
+    lurkEntity test_c;
 };
 
 typedef struct {
     int dummy;
 } TestComponent;
 
-static GameKit* init(gkState* state) {
-    GameKit *result = malloc(sizeof(struct GameKit));
-    result->test_a = gkFindTexture(state, "test2.png");
-    result->test_b = gkNewEntity(state);
-    result->test_c = GK_COMPONENT(state, TestComponent);
-    gkAttach(state, result->test_b, result->test_c);
+static lurkContext* init(lurkState* state) {
+    lurkContext *result = malloc(sizeof(struct lurkContext));
+    result->test_a = lurkFindTexture(state, "test2.png");
+    result->test_b = lurkNewEntity(state);
+    result->test_c = LURK_COMPONENT(state, TestComponent);
+    lurkAttach(state, result->test_b, result->test_c);
     return result;
 }
 
-static void deinit(gkState* state, GameKit *scene) {
-    free(scene);
+static void deinit(lurkState* state, lurkContext *context) {
+    free(context);
 }
 
-static void reload(gkState* state, GameKit *scene) {
-
-}
-
-static void unload(gkState* state, GameKit *scene) {
+static void reload(lurkState* state, lurkContext *context) {
 
 }
 
-static void event(gkState* state, GameKit *scene, gkEventType event) {
+static void unload(lurkState* state, lurkContext *context) {
 
 }
 
-static void frame(gkState* state, GameKit *scene, float delta) {
+static void event(lurkState* state, lurkContext *context, lurkEventType event) {
+
+}
+
+static void frame(lurkState* state, lurkContext *context, float delta) {
     int width, height;
-    gkWindowSize(state, &width, &height);
+    lurkWindowSize(state, &width, &height);
     float ratio = (float)width / (float)height;
-    gkViewport(state, 0, 0, width, height);
-    gkProject(state, -ratio, ratio, 1.f, -1.f);
-    gkSetColor(state, 1.f, 0.f, 0.f, 1.f);
-    gkClear(state);
+    lurkViewport(state, 0, 0, width, height);
+    lurkProject(state, -ratio, ratio, 1.f, -1.f);
+    lurkSetColor(state, 1.f, 0.f, 0.f, 1.f);
+    lurkClear(state);
 
-    assert(gkHas(state, scene->test_b, scene->test_c));
+    assert(lurkHas(state, context->test_b, context->test_c));
 
-    gkSetColor(state, 0.f, 0.f, 0.f, 1.f);
-    gkDrawFilledRect(state, -.5f, -.5f, 1.f, 1.f);
+    lurkSetColor(state, 0.f, 0.f, 0.f, 1.f);
+    lurkDrawFilledRect(state, -.5f, -.5f, 1.f, 1.f);
 }
 
-EXPORT const gkScene scene = {
+EXPORT const lurkScene scene = {
     .init = init,
     .deinit = deinit,
     .reload = reload,

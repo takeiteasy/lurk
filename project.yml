@@ -1,4 +1,4 @@
-name: gamekit
+name: lurk
 
 options:
   bundleIdPrefix: io.github.takeiteasy
@@ -13,7 +13,7 @@ settings:
   CLANG_WARN_DOCUMENTATION_COMMENTS: false
 
 targets:
-  gamekit:
+  lurk:
     type: tool
     platform: macOS
     sources:
@@ -25,13 +25,13 @@ targets:
         - path: project.yml
         - path: README.md
         - path: scenes/config.h
-        - path: gamekit/
+        - path: lurk/
           excludes:
             - "deps/"
-        - path: gamekit/deps/
+        - path: lurk/deps/
           type: folder
-        - path: gamekit/deps/gamepad/Gamepad_private.c
-        - path: gamekit/deps/gamepad/Gamepad_macosx.c
+        - path: lurk/deps/gamepad/Gamepad_private.c
+        - path: lurk/deps/gamepad/Gamepad_macosx.c
     dependencies:
         - sdk: Cocoa.framework
         - sdk: Metal.framework
@@ -41,16 +41,16 @@ targets:
         - sdk: CoreFoundation.framework
         - sdk: IOKit.framework
     settings:
-        HEADER_:SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/lurk, $(PROJECT_DIR)/lurk/deps, $(PROJECT_DIR)/scenes]
         OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fno-objc-arc, -fenable-matrix]
   test:
     type: library.dynamic
     platform: macOS
     sources:
         - path: scenes/test.c
-        - path: gamekit/
+        - path: lurk/
           excludes:
             - "deps/"
     settings:
-        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/gamekit, $(PROJECT_DIR)/gamekit/deps, $(PROJECT_DIR)/scenes]
-        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fno-objc-arc, -fenable-matrix, -DSOKOL_NO_ENTRY, -DGAMEKIT_SCENE]
+        HEADER_SEARCH_PATHS: [$(PROJECT_DIR)/lurk, $(PROJECT_DIR)/lurk/deps, $(PROJECT_DIR)/scenes]
+        OTHER_CFLAGS: ["-x objective-c", -DSOKOL_METAL, -fno-objc-arc, -fenable-matrix, -DSOKOL_NO_ENTRY, -DLURK_SCENE]

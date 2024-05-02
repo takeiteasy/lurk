@@ -9,7 +9,7 @@
       **list-input** None
       **prefix** None)
 
-(let [parser (argparse.ArgumentParser :description "Wrap a library for c-gamekit"
+(let [parser (argparse.ArgumentParser :description "Wrap a library for lurk"
                                       :formatter-class argparse.ArgumentDefaultsHelpFormatter)]
   (parser.add-argument "--header" :help "Path to header file")
   (parser.add-argument "--list" :help "Path to list of functions to wrap")
@@ -66,16 +66,16 @@
   (print "typedef struct {")
   (for [p params]
     (print f"    {p};"))
-  (print (+ "} " f"gk{new-name}Data;"))
+  (print (+ "} " f"lurk{new-name}Data;"))
   (blank-line))
 
 (defn generate-funcs [new-name old-name params]
-  (print (+ f"void gk{new-name}(gkState *state{(if params (+ ", " (.join ", " params)) "")}) " "{"))
-  (print "    gkCommand* cmd = malloc(sizeof(gkCommand));")
-  (print f"    cmd->type = gkCommand{new-name};")
+  (print (+ f"void lurk{new-name}(lurkState *state{(if params (+ ", " (.join ", " params)) "")}) " "{"))
+  (print "    lurkCommand* cmd = malloc(sizeof(lurkCommand));")
+  (print f"    cmd->type = lurkCommand{new-name};")
   (if params
       (do
-        (print f"    gk{new-name}Data* cmdData = malloc(sizeof(gk{new-name}Data));")
+        (print f"    lurk{new-name}Data* cmdData = malloc(sizeof(lurk{new-name}Data));")
         (for [p params]
           (let [pname (get (.split p " ") 1)]
             (print f"    cmdData->{pname} = {pname};")))
@@ -97,19 +97,19 @@
 (defn generate-enums [tree]
   (print "typedef enum {")
   (for-entry-tree
-    (print f"    gkCommand{new-name},"))
-  (print "} gkCommandType;")
+    (print f"    lurkCommand{new-name},"))
+  (print "} lurkCommandType;")
   (blank-line))
 
 (defn generate-handler [tree]
-  (print "static void FreeCommand(gkCommand* command) {")
-  (print "    gkCommandType type = command->type;")
+  (print "static void FreeCommand(lurkCommand* command) {")
+  (print "    lurkCommandType type = command->type;")
   (print "    switch
 (type) {")
   (for-entry-tree
     (when (get entry "parameters")
-      (print (+ f"    case {(+ "gkCommand" new-name)}: " "{"))
-      (print f"        gk{new-name}Data* data = (gk{new-name}Data*)command->data;")
+      (print (+ f"    case {(+ "lurkCommand" new-name)}: " "{"))
+      (print f"        lurk{new-name}Data* data = (lurk{new-name}Data*)command->data;")
       (print "        free(data);")
       (print "        break;")
       (print "    }")))
@@ -119,21 +119,21 @@
   (print "    free(command);")
   (print "}")
   (blank-line)
-  (print "static void ProcessCommand(gkCommand* command) {")
-  (print "    gkCommandType type = command->type;")
+  (print "static void ProcessCommand(lurkCommand* command) {")
+  (print "    lurkCommandType type = command->type;")
   (print "    switch (type) {")
   (for-entry-tree
     (let [params (convert-parameters new-name entry)]
       (if params
           (do
-            (print (+ f"    case {(+ "gkCommand" new-name)}: " "{"))
-            (print f"        gk{new-name}Data* data = (gk{new-name}Data*)command->data;")
+            (print (+ f"    case {(+ "lurkCommand" new-name)}: " "{"))
+            (print f"        lurk{new-name}Data* data = (lurk{new-name}Data*)command->data;")
             (let [formatted-params (.join ", " (lfor p params (+ "data->" (get (.split p " ") 1))))]
               (print f"        {old-name}({formatted-params});"))
             (print "        break;")
             (print "    }"))
           (do
-            (print f"    case {(+ "gkCommand" new-name)}:")
+            (print f"    case {(+ "lurkCommand" new-name)}:")
             (print f"        {old-name}();")
             (print "        break;"))))
     )
@@ -146,19 +146,19 @@
   (for-entry-tree
     (let [params (convert-parameters new-name entry)]
       (if params
-          (print f"EXPORT void gk{new-name}(gkState* state, {(.join ", " params)});")
-          (print f"EXPORT void gk{new-name}(gkState* state);"))))
+          (print f"EXPORT void lurk{new-name}(lurkState* state, {(.join ", " params)});")
+          (print f"EXPORT void lurk{new-name}(lurkState* state);"))))
   (blank-line))
 
 (let [tree (json.loads (run-cmd "c2ffi" **header-input**))]
   (generate-header tree)
   (generate-enums tree)
   (print "typedef struct {")
-  (print "    gkCommandType type;")
+  (print "    lurkCommandType type;")
   (print "    void* data;");
-  (print "} gkCommand;")
+  (print "} lurkCommand;")
   (blank-line)
-  (print "static void PushCommand(gkState* state, gkCommand* command) {")
+  (print "static void PushCommand(lurkState* state, lurkCommand* command) {")
   (print "    ezStackAppend(&state->commandQueue, command->type, (void*)command);")
   (print "}")
   (blank-line)

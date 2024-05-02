@@ -1,7 +1,7 @@
 OUT_PATH=build
 SCENES_PATH=scenes
-INCLUDE=-Igamekit -Igamekit/deps -I$(SCENES_PATH)
-SOURCES=$(wildcard gamekit/*.c) gamekit/deps/gamepad/Gamepad_private.c
+INCLUDE=-Ilurk -Ilurk/deps -I$(SCENES_PATH)
+SOURCES=$(wildcard lurk/*.c) lurk/deps/gamepad/Gamepad_private.c
 
 ifeq ($(OS),Windows_NT)
 	PROG_EXT=.exe
@@ -9,7 +9,7 @@ ifeq ($(OS),Windows_NT)
 	ARCH=win32
 	LIB_EXT=dll
 	SHDC_FLAGS=hlsl5
-	SOURCES:=$(SOURCES) gamekit/deps/dlfcn_win32.c
+	SOURCES:=$(SOURCES) lurk/deps/dlfcn_win32.c
 else
 	UNAME:=$(shell uname -s)
 	PROG_EXT=
@@ -23,17 +23,19 @@ else
 			ARCH=osx
 		endif
 		SHDC_FLAGS=metal_macos
-		SOURCES:=$(SOURCES) gamekit/deps/gamepad/Gamepad_macosx.c
+		SOURCES:=$(SOURCES) lurk/deps/gamepad/Gamepad_macosx.c
 	else ifeq ($(UNAME),Linux)
 		SOKOL_FLAGS=-DSOKOL_GLCORE33 -pthread -lGL -ldl -lm -lX11 -lasound -lXi -lXcursor
 		ARCH=linux
 		SHDC_FLAGS=glsl330
 		LIB_EXT=so
-		SOURCES:=$(SOURCES) gamekit/deps/gamepad/Gamepad_linux.c
+		SOURCES:=$(SOURCES) lurk/deps/gamepad/Gamepad_linux.c
 	else
 		$(error OS not supported by this Makefile)
 	endif
 endif
+
+default: all
 
 SCENES=$(wildcard $(SCENES_PATH)/*.c)
 SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,$(OUT_PATH)/%.$(LIB_EXT), $(SCENES))
@@ -42,29 +44,19 @@ SCENES_OUT=$(patsubst $(SCENES_PATH)/%.c,$(OUT_PATH)/%.$(LIB_EXT), $(SCENES))
 SCENE=$(patsubst $(OUT_PATH)/%.$(LIB_EXT),$(SCENES_PATH)/%.c,$@)
 SCENE_OUT=$@
 %.$(LIB_EXT): $(SCENES)
-	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DGAMEKIT_SCENE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
+	$(CC) -shared -fpic $(INCLUDE) -DSOKOL_NO_ENTRY -DLURK_SCENE -fenable-matrix $(SOKOL_FLAGS) $(SCENE) $(SOURCES) -o $(SCENE_OUT)
 
 $(OUT_PATH):
 	mkdir $(OUT_PATH)
 
 scenes: $(OUT_PATH) $(SCENES_OUT)
 
-$(SCENES_PATH)/assets.ezc:
-	sh tools/cook.sh $(SCENES_PATH)/assets/* > $(SCENES_PATH)/assets.ezc
-
-assets: $(SCENES_PATH)/assets.ezc
-
-debug: $(OUT_PATH)
-	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o $(OUT_PATH)/gamekit_$(ARCH)$(PROG_EXT)
-
-release: $(OUT_PATH)
-		$(CC) $(INCLUDE) -DGAMEKIT_RELEASE -O3 -Wall -Werror -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o $(OUT_PATH)/gamekit_$(ARCH)$(PROG_EXT)
+program: $(OUT_PATH)
+	$(CC) $(INCLUDE) -g -fenable-matrix $(SOKOL_FLAGS) $(SOURCES) -o $(OUT_PATH)/lurk_$(ARCH)$(PROG_EXT)
 
 clean:
 	rm -rf $(OUT_PATH)/ || yes
 
-all: clean assets scenes debug
+all: clean scenes program
 
-default: scenes
-
-.PHONY: all debug release scenes clean
+.PHONY: default all program scenes clean

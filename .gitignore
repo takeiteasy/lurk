@@ -3,7 +3,6 @@ build/
 *.plist
 *.xcodeproj/
 project_test.yml
-.test.json
 *.json
 *.pyc
 test/
