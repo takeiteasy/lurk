@@ -1,3 +1,0 @@
-[submodule "deps/ez"]
-	path = gamekit/deps/ez
-	url = git@github.com:takeiteasy/ez.git
