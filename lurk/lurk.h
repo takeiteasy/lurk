@@ -361,48 +361,6 @@ EXPORT void lurkDrawFilledRect(lurkState* state, float x, float y, float w, floa
 EXPORT void lurkDrawTexturedRects(lurkState* state, int channel, sgp_textured_rect* rects, int count);
 EXPORT void lurkDrawTexturedRect(lurkState* state, int channel, sgp_rect dest_rect, sgp_rect src_rect);
 
-typedef ezEntity lurkEntity;
-typedef ezQuery lurkQuery;
-typedef ezSystemCb lurkSystemCb;
-typedef ezSystem lurkSystem;
-typedef ezPrefab lurkPrefab;
-typedef ezRelation lurkRelation;
-
-#define LURK_IS_ENTITY_NIL(E) ((E).parts.id == ezEcsNil)
-#define LURK_COMPARE_ENTITIES(A, B) ((A).id == (B).id)
-#define LURK_ECS_NIL ezEcsNil
-#define LURK_ECS_NIL_ENTITY ezEcsNilEntity
-
-#define LURK_NORMAL_TYPE ezEcsNormalType
-#define LURK_COMPONENT_TYPE ezEcsComponentType
-#define LURK_SYSTEM_TYPE ezEcsSystemType
-#define LURK_PREFAB_TYPE ezEcsPrefabType
-#define LURK_RELATION_TYPE ezEcsRelationType
-
-#define LURK_COMPONENT(STATE, T) (ezEcsNewComponent((STATE)->world, sizeof(T)))
-#define LURK_TAG(STATE, T) (ezEcsNewComponent((STATE)->world, 0))
-#define LURK_QUERY(STATE, CB, ...) (ezEcsQuery((STATE)->world, (CB), (lurkEntity[]){__VA_ARGS__}, sizeof((lurkEntity[]){__VA_ARGS__}) / sizeof(lurkEntity)))
-#define LURK_FIELD(VIEW, T, IDX) (T *)ezEcsViewField((VIEW), (IDX))
-#define LURK_SYSTEM(STATE, CB, ...) (ezEcsNewSystem((STATE)->world, (CB), N_ARGS(__VA_ARGS__), __VA_ARGS__))
-#define LURK_PREFAB(STATE, ...) (ezEcsNewPrefab((STATE)->world, N_ARGS(__VA_ARGS__), __VA_ARGS__))
-
-#define LURK_IS_CHILD_OF(STATE, PARENT, CB) (lurkRelations((STATE), (PARENT), LURK_CHILD, (CB)))
-#define LURK_IS_ENTITY_A(E, TYPE) ((E).parts.flag == ezEcs##TYPE##Type)
-
-EXPORT lurkEntity lurkNewEntity(lurkState* state);
-EXPORT void lurkDeleteEntity(lurkState* state, lurkEntity entity);
-EXPORT bool lurkIsValid(lurkState* state, lurkEntity entity);
-EXPORT bool lurkHas(lurkState* state, lurkEntity entity, lurkEntity component);
-EXPORT void lurkAttach(lurkState* state, lurkEntity entity, lurkEntity component);
-EXPORT void lurkAssociate(lurkState* state, lurkEntity entity, lurkEntity object, lurkEntity relation);
-EXPORT void lurkDetach(lurkState* state, lurkEntity entity, lurkEntity component);
-EXPORT void lurkDisassociate(lurkState* state, lurkEntity entity);
-EXPORT bool lurkHasRelation(lurkState* state, lurkEntity entity, lurkEntity object);
-EXPORT bool lurkRelated(lurkState* state, lurkEntity entity, lurkEntity relation);
-EXPORT void* lurkGet(lurkState* state, lurkEntity entity, lurkEntity component);
-EXPORT void lurkSet(lurkState* state, lurkEntity entity, lurkEntity component, void* data);
-EXPORT void lurkRelations(lurkState* state, lurkEntity entity, lurkEntity relation, lurkSystemCb cb);
-
 extern lurkState state;
 
 #if defined(__cplusplus)

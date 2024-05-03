@@ -24,9 +24,6 @@ To achieve this, the framework is built around hot-reloading; meaning code chang
 - [ ] Input handling
   - [X] Joystick support
   - [ ] Input mapping
-- [X] Integrated ECS (ezecs.h)
-- [ ] Rigid-body physics (contained inside ECS)
-- [ ] Animations+Events (Inspired by Apple's SpriteKit `SKAction`)
 - [ ] Assets
   - [X] Images (wrapper over stb_image+stb_image_write.h+qoi.h)
     - Importing: jpeg, png, tng, bmp, psd, gif, hdr, pic, pnm, qoi
@@ -54,10 +51,9 @@ The layout of the project is very simple.
 ```
 ├── build/ (where your executables live)
 ├── lurk/ (lurk source + third party dependencies)
-├── scenes/ (where your project lives)
-│   ├── assets/ (where your project's assets live)
-│   └── config.h (project conifg **required**)
-└── tools/ (internal lurk tools)
+└── scenes/ (where your project lives)
+    ├── assets/ (where your project's assets live)
+    └── config.h (project conifg **required**)
 ```
 
 You are likely only interested in the `scenes` folder. This is where your project and its assets will live. **NOTE**: The name of this folder can be easily changed by modifying the Makefile. Your projects assets will live in ```scenes/assets/```.

@@ -1167,58 +1167,6 @@ static FILETIME Win32GetLastWriteTime(char* path) {
 }
 #endif
 
-ezEntity lurkNewEntity(lurkState* state) {
-    return ezEcsNewEntity(state->world);
-}
-
-void lurkDeleteEntity(lurkState* state, ezEntity entity) {
-    ezEcsDeleteEntity(state->world, entity);
-}
-
-bool lurkIsValid(lurkState* state, ezEntity entity) {
-    return ezEcsIsValid(state->world, entity);
-}
-
-bool lurkHas(lurkState* state, ezEntity entity, ezEntity component) {
-    return ezEcsHas(state->world, entity, component);
-}
-
-void lurkAttach(lurkState* state, ezEntity entity, ezEntity component) {
-    ezEcsAttach(state->world, entity, component);
-}
-
-void lurkAssociate(lurkState* state, ezEntity entity, ezEntity object, ezEntity relation) {
-    ezEcsAssociate(state->world, entity, object, relation);
-}
-
-void lurkDetach(lurkState* state, ezEntity entity, ezEntity component) {
-    ezEcsDetach(state->world, entity, component);
-}
-
-void lurkDisassociate(lurkState* state, ezEntity entity) {
-    ezEcsDisassociate(state->world, entity);
-}
-
-bool lurkHasRelation(lurkState* state, ezEntity entity, ezEntity object) {
-    return ezEcsHasRelation(state->world, entity, object);
-}
-
-bool lurkRelated(lurkState* state, ezEntity entity, ezEntity relation) {
-    return ezEcsRelated(state->world, entity, relation);
-}
-
-void* lurkGet(lurkState* state, ezEntity entity, ezEntity component) {
-    return ezEcsGet(state->world, entity, component);
-}
-
-void lurkSet(lurkState* state, ezEntity entity, ezEntity component, void* data) {
-    ezEcsSet(state->world, entity, component, data);
-}
-
-void lurkRelations(lurkState* state, ezEntity entity, ezEntity relation, ezSystemCb cb) {
-    ezEcsRelations(state->world, entity, relation, cb, NULL);
-}
-
 #if !defined(LURK_SCENE)
 static bool ReloadLibrary(const char *path) {
 #if defined(LURK_DISABLE_HOTRELOAD)
